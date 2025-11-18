@@ -24,7 +24,7 @@ class Game:
         pygame.init()
         pygame.display.set_caption(window_title)
 
-    def quit(self):
+    def quit(self) -> bool:
         pygame.quit()
         return False
 

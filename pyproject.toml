@@ -13,5 +13,4 @@ dependencies = [
 line-length = 79
 
 [tool.ruff.lint]
-extend-select = ["ANN"] 
-
+extend-select = ["ANN"]

@@ -15,7 +15,7 @@ class Screen:
         screen_width: int = 400,
         screen_height: int = 400,
         block_size: int = 20,
-    ):
+    ) -> None:
         self.width = screen_width
         self.height = screen_height
         self.block_size = block_size
