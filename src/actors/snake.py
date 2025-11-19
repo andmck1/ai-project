@@ -8,39 +8,52 @@ import pygame
 
 class Snake(PyGameObject):
     body: list[tuple[int, int]] = []
-    grow: bool = False
+    eaten_fruit: bool = False
     body_colour: Colour = Colour.GREEN
     current_direction: Direction = Direction.RIGHT
+    is_ai: bool = False
+    name: str = "NO NAME ASSIGNED"
 
     def __init__(
         self,
         screen: Screen,
         start_position: tuple[int, int],
+        name: str,
+        is_ai: bool = False,
         start_direction: Direction = Direction.RIGHT,
         body_colour: Colour = Colour.GREEN,
     ) -> None:
         super().__init__(screen)
         self.body: list[tuple[int, int]] = [start_position]
         self.current_direction = start_direction
-        self.grow = False
+        self.eaten_fruit = False
         self.body_colour = body_colour
+        self.is_ai = is_ai
+        self.name = name
 
     def move(self) -> None:
-        head_x, head_y = self.body[0]
-        dx, dy = self.current_direction.value
-        new_head = (head_x + dx, head_y + dy)
-        self.body.insert(0, new_head)
-        if not self.grow:
+        head_position = self.body[0]
+        current_direction = self.current_direction.value
+        # TODO - Could make array instead and use numpy maths
+        next_head_position = (
+            head_position[0] + current_direction[0],
+            head_position[1] + current_direction[1],
+        )
+        self.body.insert(0, next_head_position)
+        if not self.eaten_fruit:
             self.body.pop()
         else:
-            self.grow = False
+            self.eaten_fruit = False
 
     def change_direction(self, new_direction: Direction) -> None:
-        if (
-            new_direction.value[0] * -1,
-            new_direction.value[1] * -1,
-        ) != self.current_direction:
-            self.current_direction = new_direction
+        # Check not moving into self when length greater than 1
+        if len(self.body) > 1:
+            if (
+                new_direction.value[0] * -1,
+                new_direction.value[1] * -1,
+            ) == self.current_direction.value:
+                return None
+        self.current_direction = new_direction
 
     def check_collision(self) -> bool:
         head = self.body[0]

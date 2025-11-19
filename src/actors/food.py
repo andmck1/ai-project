@@ -9,17 +9,17 @@ import pygame
 
 class Food(PyGameObject):
     colour: Colour
+    position: tuple[int, int]
 
     def __init__(self, screen: Screen, colour: Colour = Colour.RED) -> None:
         super().__init__(screen)
         self.colour = colour
-        self.position = self.init_position()
+        self.position = (0, 0)
 
-    def init_position(self) -> tuple[int, int]:
-        return (
-            random.randint(0, self.screen.n_cols - 1),
-            random.randint(0, self.screen.n_rows - 1),
-        )
+    def move(self, free_positions: list[tuple[int, int]]) -> None:
+        self.position = free_positions[
+            random.randint(0, len(free_positions) - 1)
+        ]
 
     def draw(self) -> None:
         pygame.draw.rect(
