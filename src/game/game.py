@@ -134,13 +134,13 @@ class Game:
                 _snake.change_direction(self.ai_move())
             else:
                 _snake.change_direction(self.last_input_direction)
-            _snake.move()
+                _snake.move()
 
             if _snake.body[0] == self.food.position:
                 _snake.eaten_fruit = True
                 self.food.move(self.free_positions)
 
-            if _snake.check_collision():
+            if _snake.check_collision(self.filled_positions):
                 print(_snake.name + " lost")
                 self.quit()
                 return False

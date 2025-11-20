@@ -8,6 +8,7 @@ import pygame
 
 class Snake(PyGameObject):
     body: list[tuple[int, int]] = []
+    previous_head_position = tuple[int, int]
     eaten_fruit: bool = False
     body_colour: Colour = Colour.GREEN
     current_direction: Direction = Direction.RIGHT
@@ -30,10 +31,13 @@ class Snake(PyGameObject):
         self.body_colour = body_colour
         self.is_ai = is_ai
         self.name = name
+        self.previous_head_position = start_position
 
     def move(self) -> None:
         head_position = self.body[0]
+        self.previous_head_position = head_position
         current_direction = self.current_direction.value
+
         # TODO - Could make array instead and use numpy maths
         next_head_position = (
             head_position[0] + current_direction[0],
@@ -55,11 +59,16 @@ class Snake(PyGameObject):
                 return None
         self.current_direction = new_direction
 
-    def check_collision(self) -> bool:
+    def check_collision(self, filled_positions: list[tuple[int, int]]) -> bool:
         head = self.body[0]
+
+        # If head in filled positions twice then occupying filled space
+        if len([_pos for _pos in filled_positions if _pos == head]) > 1:
+            return True
+
+        # Check if OOB
         return (
-            head in self.body[1:]
-            or head[0] < 0
+            head[0] < 0
             or head[0] >= self.screen.n_cols
             or head[1] < 0
             or head[1] >= self.screen.n_rows
