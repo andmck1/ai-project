@@ -15,11 +15,19 @@ class Screen:
         screen_width: int = 400,
         screen_height: int = 400,
         block_size: int = 20,
+        is_draw_enabled: bool = True,
     ) -> None:
         self.width = screen_width
         self.height = screen_height
         self.block_size = block_size
-        self.surface = pygame.display.set_mode((self.width, self.height))
+
+        flags = 0
+        if not is_draw_enabled:
+            flags = pygame.HIDDEN
+
+        self.surface = pygame.display.set_mode(
+            (self.width, self.height), flags=flags
+        )
 
     @property
     def n_rows(self) -> int:

@@ -15,6 +15,7 @@ class Game:
     all_positions: list[tuple[int, int]]
     is_two_ai_playing: bool = False
     last_input_direction: Direction = Direction.RIGHT
+    is_draw_enabled: bool = True
 
     def __init__(
         self,
@@ -22,21 +23,28 @@ class Game:
         window_title: str,
         tick_length: int = 8,
         is_two_ai_playing: bool = False,
+        is_draw_enabled: bool = True,
     ) -> None:
         self.screen = screen
         self.is_two_ai_playing = is_two_ai_playing
+        self.is_draw_enabled = is_draw_enabled
+
+        start_position_1 = (5, 5)
+
+        start_position_2 = (self.screen.n_rows - 5, self.screen.n_cols - 5)
 
         if is_two_ai_playing:
             self.snakes = [
                 Snake(
                     screen=screen,
-                    start_position=(5, 5),
+                    start_position=start_position_1,
                     is_ai=True,
                     name="AI 1",
+                    start_direction=Direction.RIGHT,
                 ),
                 Snake(
                     screen=screen,
-                    start_position=(10, 10),
+                    start_position=start_position_2,
                     is_ai=True,
                     body_colour=Colour.BLUE,
                     name="AI 2",
@@ -47,13 +55,14 @@ class Game:
             self.snakes = [
                 Snake(
                     screen=screen,
-                    start_position=(5, 5),
+                    start_position=start_position_1,
                     is_ai=False,
                     name="Player",
+                    start_direction=Direction.RIGHT,
                 ),
                 Snake(
                     screen=screen,
-                    start_position=(5, 10),
+                    start_position=start_position_2,
                     is_ai=True,
                     body_colour=Colour.BLUE,
                     name="AI",
@@ -134,7 +143,7 @@ class Game:
                 _snake.change_direction(self.ai_move())
             else:
                 _snake.change_direction(self.last_input_direction)
-                _snake.move()
+            _snake.move()
 
             if _snake.body[0] == self.food.position:
                 _snake.eaten_fruit = True
@@ -145,11 +154,15 @@ class Game:
                 self.quit()
                 return False
 
-            _snake.draw()
+            if self.is_draw_enabled:
+                _snake.draw()
 
-        self.food.draw()
+        if self.is_draw_enabled:
+            self.food.draw()
+            # TODO - could be more efficient to collect the rectangles
+            # and display using .update()
+            pygame.display.flip()
 
-        pygame.display.flip()
         self.clock.tick(self.tick_length)
 
         return True
