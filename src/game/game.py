@@ -3,6 +3,7 @@ from enum import Enum, unique
 import random
 import pygame
 import torch
+import numpy as np
 
 from src.actors import Snake, Food
 from src.game.screen import Screen
@@ -20,6 +21,8 @@ device = torch.device(
 
 @dataclass(kw_only=True)
 class RewardContext:
+    previous_direction: Direction
+    new_direction: Direction
     previous_distance_to_food: float = 0.0
     new_distance_to_food: float = 0.0
     previous_distance_to_wall: float = 0.0
@@ -255,6 +258,7 @@ class Game:
         for _snake_idx, _snake in enumerate(self.snakes):
             is_food_eaten = False
             is_game_over = False
+            previous_direction = _snake.current_direction
 
             previous_distance_to_food = self.distance_to_food(_snake)
             previous_distance_to_wall = self.distance_to_wall(_snake)
@@ -281,6 +285,8 @@ class Game:
                 self.quit()
 
             rewardContext = RewardContext(
+                previous_direction=previous_direction,
+                new_direction=self.last_input_direction,
                 previous_distance_to_food=previous_distance_to_food,
                 new_distance_to_food=new_distance_to_food,
                 previous_distance_to_wall=previous_distance_to_wall,
@@ -358,40 +364,36 @@ class Game:
         )
 
         # draw ai snake state
-        self.current_ai_snake = 1
+        self.current_ai_snake = 0
         _snake_ai_state = self.training_ai_get_current_snake_state()
-        start_pos_y += self.screen.block_size
-        for i, encoded_item in enumerate(_snake_ai_state):
-            _pos = (
-                i % (self.screen.n_cols + 2),
-                i // (self.screen.n_cols + 2),
-            )
-            match encoded_item:
-                case 1:
-                    colour = Colour.GREEN.value
-                case 2:
-                    colour = Colour.BLUE.value
-                case 3:
-                    colour = Colour.RED.value
-                case 4:
-                    colour = Colour.YELLOW.value
-                case 5:
-                    colour = Colour.PURPLE.value
-                case 6:
-                    colour = Colour.PURPLE.value
-                case _:
-                    colour = Colour.GREY.value
 
-            pygame.draw.rect(
-                self.screen.surface,
-                colour,
-                (
-                    _pos[0] * self.screen.block_size + start_pos_x,
-                    _pos[1] * self.screen.block_size + start_pos_y,
-                    self.screen.block_size,
-                    self.screen.block_size,
-                ),
-            )
+        start_pos_y += self.screen.block_size
+        text = "Snake Pos X: {:.3f}".format(_snake_ai_state[0])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Snake Pos Y: {:.3f}".format(_snake_ai_state[1])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Fruit Pos X: {:.3f}".format(_snake_ai_state[2])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Fruit Pos Y: {:.3f}".format(_snake_ai_state[3])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
 
         # draw rewards
         for i in range(2):
@@ -411,34 +413,30 @@ class Game:
         self.screen.surface.fill(Colour.BLACK.value)
 
     def training_ai_end_frame(self) -> None:
+        if self.is_draw_enabled:
+            self.food.draw()
+            for _snake in self.snakes:
+                _snake.draw()
+            pygame.display.flip()
+
         self.clock.tick(self.framerate)
 
-    def training_ai_get_current_snake_state(self) -> list[int]:
+    def training_ai_get_current_snake_state(self) -> list[float]:
         state = []
-        _current_snake_state_member = (
-            StateMember.SNAKE1
-            if self.current_ai_snake == 0
-            else StateMember.SNAKE2
+        _snake = self.snakes[self.current_ai_snake]
+
+        normalised_position_x = _snake.body[0][0] / self.screen.n_cols
+        normalised_position_y = _snake.body[0][1] / self.screen.n_rows
+        normalised_fruit_position_x = (
+            self.food.position[0] / self.screen.n_cols
         )
-
-        _, _state = self.state
-
-        for _statemember in _state:
-            match _statemember:
-                case StateMember.EMPTY:
-                    state.append(0)
-                case StateMember.SNAKE1:
-                    state.append(1)
-                case StateMember.SNAKE2:
-                    state.append(2)
-                case StateMember.FOOD:
-                    state.append(3)
-                case StateMember.EDGE:
-                    state.append(4)
-                case StateMember.SNAKE1_HEAD:
-                    state.append(5)
-                case StateMember.SNAKE2_HEAD:
-                    state.append(6)
+        normalised_fruit_position_y = (
+            self.food.position[1] / self.screen.n_cols
+        )
+        state.append(normalised_position_x)
+        state.append(normalised_position_y)
+        state.append(normalised_fruit_position_x)
+        state.append(normalised_fruit_position_y)
 
         return state
 
@@ -450,22 +448,20 @@ class Game:
     def training_ai_step(
         self, input_direction: Direction
     ) -> tuple[list[int] | None, float, bool] | None:
-        if self.current_ai_snake == 0:
-            self.current_ai_snake = (self.current_ai_snake + 1) % 2
-            return
-
         reward = 0.0
         next_state = []
         is_game_over = False
         is_food_eaten = False
 
         _snake = self.snakes[self.current_ai_snake]
+        previous_direction = _snake.current_direction
 
         previous_distance_to_food = self.distance_to_food(_snake)
         previous_distance_to_wall = self.distance_to_wall(_snake)
 
-        _snake.change_direction(input_direction)
-        _snake.move()
+        if self.current_ai_snake != 0:
+            _snake.change_direction(input_direction)
+            _snake.move()
 
         new_distance_to_food = self.distance_to_food(_snake)
         new_distance_to_wall = self.distance_to_wall(_snake)
@@ -479,7 +475,13 @@ class Game:
             is_game_over = True
             self.quit()
 
+        if self.current_ai_snake == 0:
+            self.current_ai_snake = (self.current_ai_snake + 1) % 2
+            return
+
         rewardContext = RewardContext(
+            previous_direction=previous_direction,
+            new_direction=input_direction,
             previous_distance_to_food=previous_distance_to_food,
             new_distance_to_food=new_distance_to_food,
             previous_distance_to_wall=previous_distance_to_wall,
@@ -505,8 +507,8 @@ class Game:
 
     def distance_to_wall(self, _snake: Snake) -> float:
         snake_x, snake_y = _snake.body[0]
-        distance_x = min(snake_x + 1, self.screen.n_cols - snake_x + 1)
-        distance_y = min(snake_y + 1, self.screen.n_rows - snake_y + 1)
+        distance_x = min(snake_x, self.screen.n_cols - snake_x)
+        distance_y = min(snake_y + 1, self.screen.n_rows - snake_y)
 
         return min(distance_x, distance_y)
 
@@ -516,19 +518,25 @@ class Game:
             return -1.0
         if rewardContext.is_food_eaten:
             return 1.0
-        if rewardContext.new_distance_to_food == 1:
-            reward += 0.10
         if rewardContext.new_distance_to_wall == 1:
-            reward -= 0.05
+            return -1.0
 
+        if (
+            rewardContext.previous_direction.value[0]
+            == rewardContext.new_direction.value[0] * -1
+        ) and (
+            rewardContext.previous_direction.value[1]
+            == rewardContext.new_direction.value[1] * -1
+        ):
+            return -1.0
         distance_moved_toward_food = (
             rewardContext.previous_distance_to_food
             - rewardContext.new_distance_to_food
         )
-        distance_moved_toward_wall = (
-            rewardContext.previous_distance_to_wall
-            - rewardContext.new_distance_to_wall
-        )
+        # distance_moved_toward_wall = (
+        #     rewardContext.previous_distance_to_wall
+        #     - rewardContext.new_distance_to_wall
+        # )
 
         food_reward = 0.0
         wall_reward = 0.0
@@ -537,7 +545,7 @@ class Game:
         # TODO - set all this in training config
         MAX_DIST_FROM_FOOD = self.screen.n_cols + self.screen.n_rows
         MAX_DIST_FROM_WALL = self.screen.n_cols // 2
-        FOOD_REWARD_MULTIPLIER = 5.0
+        FOOD_REWARD_MULTIPLIER = 10.0
         WALL_REWARD_MULTIPLIER = 1.0
 
         food_reward = (
@@ -545,26 +553,14 @@ class Game:
             * distance_moved_toward_food
             / MAX_DIST_FROM_FOOD
         )
-        wall_reward = -(
-            WALL_REWARD_MULTIPLIER
-            * distance_moved_toward_wall
-            / MAX_DIST_FROM_WALL
-        )
+        # wall_reward = -(
+        #     WALL_REWARD_MULTIPLIER
+        #     * distance_moved_toward_wall
+        #     / MAX_DIST_FROM_WALL
+        # )
 
         reward += food_reward + wall_reward
 
-        # food_reward = (
-        #     -1.0 / MAX_DIST_FROM_FOOD * rewardContext.new_distance_to_food + 1
-        # )
-        # wall_reward = (
-        #     1.0 / MAX_DIST_FROM_WALL * rewardContext.new_distance_to_wall - 1
-        # )
-        #
-        # if abs(food_reward) > abs(wall_reward):
-        #     reward = food_reward
-        # else:
-        #     reward = food_reward + wall_reward
-        #
         reward = min(reward, 1.0)
         reward = max(reward, -1.0)
         return reward
