@@ -453,16 +453,15 @@ class Game:
         next_state = []
         is_game_over = False
         is_food_eaten = False
-
+        
         _snake = self.snakes[self.current_ai_snake]
         previous_direction = _snake.current_direction
 
         previous_distance_to_food = self.distance_to_food(_snake)
         previous_distance_to_wall = self.distance_to_wall(_snake)
 
-        if self.current_ai_snake != 0:
-            _snake.change_direction(input_direction)
-            _snake.move()
+        _snake.change_direction(input_direction)
+        _snake.move()
 
         new_distance_to_food = self.distance_to_food(_snake)
         new_distance_to_wall = self.distance_to_wall(_snake)
