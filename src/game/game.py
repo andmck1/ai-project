@@ -437,6 +437,7 @@ class Game:
         state.append(normalised_position_y)
         state.append(normalised_fruit_position_x)
         state.append(normalised_fruit_position_y)
+        state.append(_snake.current_direction)
 
         return state
 
@@ -474,10 +475,6 @@ class Game:
         if _snake.check_collision(self.filled_positions):
             is_game_over = True
             self.quit()
-
-        if self.current_ai_snake == 0:
-            self.current_ai_snake = (self.current_ai_snake + 1) % 2
-            return
 
         rewardContext = RewardContext(
             previous_direction=previous_direction,
