@@ -1,50 +1,14 @@
-from dataclasses import dataclass
-from enum import Enum, unique
 import random
 from typing import Any
 import pygame
-import torch
 import numpy as np
 import pandas as pd
 import xgboost
 
 from src.actors import Snake, Food
 from src.game.screen import Screen
-from src.config.enums import Colour, Direction
-# from src.ai.models import DQN
-
-device = torch.device(
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
-
-
-@dataclass(kw_only=True)
-class RewardContext:
-    previous_direction: Direction
-    new_direction: Direction
-    previous_distance_to_food: float
-    new_distance_to_food: float
-    previous_distance_to_wall: float
-    new_distance_to_wall: float
-    previous_distance_of_head_to_other_snake: int
-    new_distance_of_head_to_other_snake: int
-    is_food_eaten: bool
-    is_game_over: bool
-
-
-@unique
-class StateMember(Enum):
-    EDGE = 0
-    EMPTY = 1
-    SNAKE0 = 2
-    SNAKE0_HEAD = 3
-    SNAKE1 = 4
-    SNAKE1_HEAD = 5
-    FOOD = 6
+from src.config.enums import Colour, Direction, StateMember
+from src.config.datamodels import RewardContext
 
 
 class Game:
@@ -53,12 +17,11 @@ class Game:
     food: Food
     clock: pygame.time.Clock
     framerate: int = 8
-    all_positions: list[tuple[int, int]]
-    is_two_ai_playing: bool = False
     last_input_direction: Direction = Direction.RIGHT
-    is_draw_enabled: bool = True
     current_ai_snake: int = 0
     ai_model: xgboost.sklearn.XGBRegressor | None = None
+    is_two_ai_playing: bool = False
+    is_draw_enabled: bool = True
     is_debug_enabled: bool = True
     is_ai_enabled: bool = True
 
@@ -76,9 +39,12 @@ class Game:
         self.screen = screen
         self.is_two_ai_playing = is_two_ai_playing
         self.is_draw_enabled = is_draw_enabled
+        self.framerate = framerate
+        self.is_ai_random = is_ai_random
+        self.is_debug_enabled = is_debug_enabled
+        self.is_ai_enabled = is_ai_enabled
 
         start_position_1 = (5, 5)
-
         start_position_2 = (self.screen.n_rows - 5, self.screen.n_cols - 5)
 
         if is_two_ai_playing:
@@ -121,15 +87,6 @@ class Game:
         self.food = Food(screen=screen)
         self.food.move(self.filled_positions)
         self.clock = pygame.time.Clock()
-        self.framerate = framerate
-        self.all_positions = [
-            (i, j)
-            for i in range(self.screen.n_cols)
-            for j in range(self.screen.n_rows)
-        ]
-        self.is_ai_random = is_ai_random
-        self.is_debug_enabled = is_debug_enabled
-        self.is_ai_enabled = is_ai_enabled
 
         if not is_ai_random:
             self.load_ai_model()
@@ -148,7 +105,7 @@ class Game:
     def free_positions(self) -> list[tuple[int, int]]:
         free_positions = [
             _pos
-            for _pos in self.all_positions
+            for _pos in self.screen.all_positions
             if _pos not in self.filled_positions
         ]
         return free_positions
@@ -232,28 +189,76 @@ class Game:
 
     def model_ai_move(self) -> Direction:
         def create_input_row(
+            _current_snake_index: int,
             _state: list[Any],
             _reward: float,
             _direction: Direction,
             _column_names: list[str],
         ) -> dict[str | int, int | float]:
             _row: dict[str | int, int | float] = {k: 0 for k in _column_names}
+
             _row = {k: 0 for k in _column_names}
             for i in range(len(_state) - 5):
                 _row[i] = _state[i]
 
             for _direction_member in list(Direction):
                 for _statemember in list(StateMember):
+                    if _current_snake_index == 0:
+                        if _statemember == StateMember.SNAKE0:
+                            statemember_text = "MY_BODY"
+                        elif _statemember == StateMember.SNAKE1:
+                            statemember_text = "OTHER_SNAKE_BODY"
+                        elif _statemember == StateMember.SNAKE1_HEAD:
+                            statemember_text = "OTHER_SNAKE_HEAD"
+                        elif _statemember == StateMember.SNAKE0_HEAD:
+                            continue
+                        else:
+                            statemember_text = str(_statemember.name)
+                        assert statemember_text != StateMember.SNAKE0_HEAD.name
+                    else:
+                        if _statemember == StateMember.SNAKE1:
+                            statemember_text = "MY_BODY"
+                        elif _statemember == StateMember.SNAKE0:
+                            statemember_text = "OTHER_SNAKE_BODY"
+                        elif _statemember == StateMember.SNAKE0_HEAD:
+                            statemember_text = "OTHER_SNAKE_HEAD"
+                        elif _statemember == StateMember.SNAKE1_HEAD:
+                            continue
+                        else:
+                            statemember_text = str(_statemember.name)
+                        assert statemember_text != StateMember.SNAKE1_HEAD.name
                     _row[
-                        f"is_state_at_head_offset_{str(_direction_member.value)}_{str(_statemember.name)}"
+                        f"is_state_at_head_offset_{str(_direction_member.value)}_{statemember_text}"
                     ] = 0
+
+            _statemember = None
 
             for i, _direction_member in zip(
                 range(len(_state) - 5, len(_state) - 1), list(Direction)
             ):
+                if _current_snake_index == 0:
+                    if _state[i] == StateMember.SNAKE0:
+                        statemember_text = "MY_BODY"
+                    elif _state[i] == StateMember.SNAKE1:
+                        statemember_text = "OTHER_SNAKE_BODY"
+                    elif _state[i] == StateMember.SNAKE1_HEAD:
+                        statemember_text = "OTHER_SNAKE_HEAD"
+                    else:
+                        statemember_text = str(_state[i].name)
+                    assert statemember_text != StateMember.SNAKE0_HEAD.name
+                else:
+                    if _state[i] == StateMember.SNAKE1:
+                        statemember_text = "MY_BODY"
+                    elif _state[i] == StateMember.SNAKE0:
+                        statemember_text = "OTHER_SNAKE_BODY"
+                    elif _state[i] == StateMember.SNAKE0_HEAD:
+                        statemember_text = "OTHER_SNAKE_HEAD"
+                    else:
+                        statemember_text = str(_state[i].name)
+                    assert statemember_text != StateMember.SNAKE1_HEAD.name
                 _row[
-                    f"is_state_at_head_offset_{str(_direction_member.value)}_{str(_state[i].name)}"
-                ] = list(StateMember).index(_state[i])
+                    f"is_state_at_head_offset_{str(_direction_member.value)}_{statemember_text}"
+                ] = 1
 
             _row[f"current_{_state[-1].name}"] = 1
             _row[f"input_{_direction.name}"] = 1
@@ -276,6 +281,10 @@ class Game:
                 3,
                 4,
                 5,
+                6,
+                7,
+                8,
+                9,
                 "input_UP",
                 "input_DOWN",
                 "input_LEFT",
@@ -285,11 +294,35 @@ class Game:
                 "current_LEFT",
                 "current_RIGHT",
                 "reward",
+                "is_state_at_head_offset_(0, -1)_EDGE",
+                "is_state_at_head_offset_(0, -1)_EMPTY",
+                "is_state_at_head_offset_(0, -1)_MY_BODY",
+                "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_BODY",
+                "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_HEAD",
+                "is_state_at_head_offset_(0, -1)_FOOD",
+                "is_state_at_head_offset_(0, 1)_EDGE",
+                "is_state_at_head_offset_(0, 1)_EMPTY",
+                "is_state_at_head_offset_(0, 1)_MY_BODY",
+                "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_BODY",
+                "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_HEAD",
+                "is_state_at_head_offset_(0, 1)_FOOD",
+                "is_state_at_head_offset_(-1, 0)_EDGE",
+                "is_state_at_head_offset_(-1, 0)_EMPTY",
+                "is_state_at_head_offset_(-1, 0)_MY_BODY",
+                "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_BODY",
+                "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_HEAD",
+                "is_state_at_head_offset_(-1, 0)_FOOD",
+                "is_state_at_head_offset_(1, 0)_EDGE",
+                "is_state_at_head_offset_(1, 0)_EMPTY",
+                "is_state_at_head_offset_(1, 0)_MY_BODY",
+                "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_BODY",
+                "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_HEAD",
+                "is_state_at_head_offset_(1, 0)_FOOD",
             ]
             state = self.training_ai_get_current_snake_state()
             input_rows = []
             for direction in list(Direction):
-                input_row = create_input_row(state, 0, direction, columns)
+                input_row = create_input_row(1, state, 0, direction, columns)
                 input_rows.append(input_row)
             input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
             direction = list(Direction)[

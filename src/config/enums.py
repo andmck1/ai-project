@@ -19,3 +19,14 @@ class Direction(Enum):
     DOWN = (0, 1)
     LEFT = (-1, 0)
     RIGHT = (1, 0)
+
+
+@unique
+class StateMember(Enum):
+    EDGE = 0
+    EMPTY = 1
+    SNAKE0 = 2
+    SNAKE0_HEAD = 3
+    SNAKE1 = 4
+    SNAKE1_HEAD = 5
+    FOOD = 6

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 import pygame
 
 
@@ -7,6 +6,7 @@ import pygame
 class Screen:
     surface: pygame.surface.Surface
     font: pygame.font.Font
+    all_positions: list[tuple[int, int]]
     width: int = 400
     height: int = 400
     block_size: int = 20
@@ -32,7 +32,7 @@ class Screen:
         flags = 0
         if not is_draw_enabled:
             flags = pygame.HIDDEN
-        
+
         pygame.font.init()
         self.font = pygame.font.Font(None, 30)
 
@@ -43,6 +43,10 @@ class Screen:
             ),
             flags=flags,
         )
+
+        self.all_positions = [
+            (i, j) for i in range(self.n_cols) for j in range(self.n_rows)
+        ]
 
     @property
     def n_rows(self) -> int:
