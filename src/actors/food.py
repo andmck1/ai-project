@@ -26,8 +26,8 @@ class Food(PyGameObject):
             self.screen.surface,
             self.colour.value,
             (
-                self.position[0] * self.screen.block_size,
-                self.position[1] * self.screen.block_size,
+                (self.position[0] + 1) * self.screen.block_size,
+                (self.position[1] + 1) * self.screen.block_size,
                 self.screen.block_size,
                 self.screen.block_size,
             ),

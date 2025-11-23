@@ -80,8 +80,8 @@ class Snake(PyGameObject):
                 self.screen.surface,
                 self.body_colour.value,
                 (
-                    segment[0] * self.screen.block_size,
-                    segment[1] * self.screen.block_size,
+                    (segment[0] + 1) * self.screen.block_size,
+                    (segment[1] + 1) * self.screen.block_size,
                     self.screen.block_size,
                     self.screen.block_size,
                 ),
