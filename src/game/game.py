@@ -1,14 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum, unique
 import random
+from typing import Any
 import pygame
 import torch
 import numpy as np
+import pandas as pd
+import xgboost
 
 from src.actors import Snake, Food
 from src.game.screen import Screen
 from src.config.enums import Colour, Direction
-from src.ai.models import DQN
+# from src.ai.models import DQN
 
 device = torch.device(
     "cuda"
@@ -23,22 +26,24 @@ device = torch.device(
 class RewardContext:
     previous_direction: Direction
     new_direction: Direction
-    previous_distance_to_food: float = 0.0
-    new_distance_to_food: float = 0.0
-    previous_distance_to_wall: float = 0.0
-    new_distance_to_wall: float = 0.0
-    is_food_eaten: bool = False
-    is_game_over: bool = False
+    previous_distance_to_food: float
+    new_distance_to_food: float
+    previous_distance_to_wall: float
+    new_distance_to_wall: float
+    previous_distance_of_head_to_other_snake: int
+    new_distance_of_head_to_other_snake: int
+    is_food_eaten: bool
+    is_game_over: bool
 
 
 @unique
 class StateMember(Enum):
     EDGE = 0
     EMPTY = 1
-    SNAKE1 = 2
-    SNAKE1_HEAD = 3
-    SNAKE2 = 4
-    SNAKE2_HEAD = 5
+    SNAKE0 = 2
+    SNAKE0_HEAD = 3
+    SNAKE1 = 4
+    SNAKE1_HEAD = 5
     FOOD = 6
 
 
@@ -53,7 +58,7 @@ class Game:
     last_input_direction: Direction = Direction.RIGHT
     is_draw_enabled: bool = True
     current_ai_snake: int = 0
-    ai_model: DQN | None = None
+    ai_model: xgboost.sklearn.XGBRegressor | None = None
     is_debug_enabled: bool = True
     is_ai_enabled: bool = True
 
@@ -165,16 +170,16 @@ class Game:
             for j in range(0, self.screen.n_cols + 2)
         }
         for _pos in self.snakes[0].body:
-            _board_state[_pos[0] + 1, _pos[1] + 1] = StateMember.SNAKE1
+            _board_state[_pos[0] + 1, _pos[1] + 1] = StateMember.SNAKE0
         for _pos in self.snakes[1].body:
-            _board_state[_pos[0] + 1, _pos[1] + 1] = StateMember.SNAKE2
+            _board_state[_pos[0] + 1, _pos[1] + 1] = StateMember.SNAKE1
 
         _board_state[
             self.snakes[0].body[0][0] + 1, self.snakes[0].body[0][1] + 1
-        ] = StateMember.SNAKE1_HEAD
+        ] = StateMember.SNAKE0_HEAD
         _board_state[
             self.snakes[1].body[0][0] + 1, self.snakes[1].body[0][1] + 1
-        ] = StateMember.SNAKE2_HEAD
+        ] = StateMember.SNAKE1_HEAD
 
         _board_state[self.food.position[0] + 1, self.food.position[1] + 1] = (
             StateMember.FOOD
@@ -219,21 +224,78 @@ class Game:
         return random_direction
 
     def load_ai_model(self) -> None:
-        _ai_model = DQN(len(self.state[1]), 4).to(device)
-        _ai_model.load_state_dict(torch.load("models/base_policy_net.pth"))
+        # _ai_model = DQN(len(self.state[1]), 4).to(device)
+        # _ai_model.load_state_dict(torch.load("models/base_policy_net.pth"))
+        _ai_model = xgboost.XGBRegressor()
+        _ai_model.load_model("models/xgboost.ubj")
         self.ai_model = _ai_model
 
     def model_ai_move(self) -> Direction:
-        self.current_ai_snake = 1
-        state = self.training_ai_get_current_snake_state()
+        def create_input_row(
+            _state: list[Any],
+            _reward: float,
+            _direction: Direction,
+            _column_names: list[str],
+        ) -> dict[str | int, int | float]:
+            _row: dict[str | int, int | float] = {k: 0 for k in _column_names}
+            _row = {k: 0 for k in _column_names}
+            for i in range(len(_state) - 5):
+                _row[i] = _state[i]
 
-        state = torch.tensor(
-            state, dtype=torch.float32, device=device
-        ).unsqueeze(0)
+            for _direction_member in list(Direction):
+                for _statemember in list(StateMember):
+                    _row[
+                        f"is_state_at_head_offset_{str(_direction_member.value)}_{str(_statemember.name)}"
+                    ] = 0
+
+            for i, _direction_member in zip(
+                range(len(_state) - 5, len(_state) - 1), list(Direction)
+            ):
+                _row[
+                    f"is_state_at_head_offset_{str(_direction_member.value)}_{str(_state[i].name)}"
+                ] = list(StateMember).index(_state[i])
+
+            _row[f"current_{_state[-1].name}"] = 1
+            _row[f"input_{_direction.name}"] = 1
+            _row["reward"] = _reward
+            return _row
+
+        self.current_ai_snake = 1
 
         if self.ai_model is not None:
-            prediction = self.ai_model(state).max(1).indices.view(1, 1)
-            return list(Direction)[prediction]
+            # state = self.training_ai_get_current_snake_state()
+            # state = torch.tensor(
+            #     state, dtype=torch.float32, device=device
+            # ).unsqueeze(0)
+            # prediction = self.ai_model(state).max(1).indices.view(1, 1)
+            # return list(Direction)[prediction]
+            columns = [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                "input_UP",
+                "input_DOWN",
+                "input_LEFT",
+                "input_RIGHT",
+                "current_UP",
+                "current_DOWN",
+                "current_LEFT",
+                "current_RIGHT",
+                "reward",
+            ]
+            state = self.training_ai_get_current_snake_state()
+            input_rows = []
+            for direction in list(Direction):
+                input_row = create_input_row(state, 0, direction, columns)
+                input_rows.append(input_row)
+            input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
+            direction = list(Direction)[
+                self.ai_model.predict(input_rows).argmax()
+            ]
+            return direction
         else:
             print("Error, unbound AI")
             return Direction.UP
@@ -255,13 +317,17 @@ class Game:
 
         rewardContexts = []
 
-        for _snake_idx, _snake in enumerate(self.snakes):
+        for _, _snake in enumerate(self.snakes):
             is_food_eaten = False
             is_game_over = False
             previous_direction = _snake.current_direction
+            _other_snake = self.snakes[(self.current_ai_snake + 1) % 2]
 
             previous_distance_to_food = self.distance_to_food(_snake)
             previous_distance_to_wall = self.distance_to_wall(_snake)
+            previous_distance_to_other_snake = (
+                self.distance_to_closest_snake_segment(_snake, _other_snake)
+            )
 
             if _snake.is_ai:
                 _snake.change_direction(self.ai_move())
@@ -273,6 +339,9 @@ class Game:
 
             new_distance_to_food = self.distance_to_food(_snake)
             new_distance_to_wall = self.distance_to_wall(_snake)
+            new_distance_to_other_snake = (
+                self.distance_to_closest_snake_segment(_snake, _other_snake)
+            )
 
             if _snake.body[0] == self.food.position:
                 is_food_eaten = True
@@ -291,6 +360,8 @@ class Game:
                 new_distance_to_food=new_distance_to_food,
                 previous_distance_to_wall=previous_distance_to_wall,
                 new_distance_to_wall=new_distance_to_wall,
+                previous_distance_of_head_to_other_snake=previous_distance_to_other_snake,
+                new_distance_of_head_to_other_snake=new_distance_to_other_snake,
                 is_game_over=is_game_over,
                 is_food_eaten=is_food_eaten,
             )
@@ -330,17 +401,17 @@ class Game:
         start_pos_y += self.screen.block_size
         for _pos, _statemember in _board_state.items():
             match _statemember:
-                case StateMember.SNAKE1:
+                case StateMember.SNAKE0:
                     colour = Colour.GREEN.value
-                case StateMember.SNAKE2:
+                case StateMember.SNAKE1:
                     colour = Colour.BLUE.value
                 case StateMember.FOOD:
                     colour = Colour.RED.value
                 case StateMember.EDGE:
                     colour = Colour.YELLOW.value
-                case StateMember.SNAKE1_HEAD:
+                case StateMember.SNAKE0_HEAD:
                     colour = Colour.PURPLE.value
-                case StateMember.SNAKE2_HEAD:
+                case StateMember.SNAKE1_HEAD:
                     colour = Colour.PURPLE.value
                 case _:
                     colour = Colour.GREY.value
@@ -367,15 +438,29 @@ class Game:
         self.current_ai_snake = 0
         _snake_ai_state = self.training_ai_get_current_snake_state()
 
+        # start_pos_y += self.screen.block_size
+        # text = "Snake Pos X: {:.3f}".format(_snake_ai_state[0])
+        # self.screen.surface.blit(
+        #     self.screen.font.render(text, True, (255, 255, 255)),
+        #     (start_pos_x, start_pos_y),
+        # )
+        #
+        # start_pos_y += self.screen.block_size
+        # text = "Snake Pos Y: {:.3f}".format(_snake_ai_state[1])
+        # self.screen.surface.blit(
+        #     self.screen.font.render(text, True, (255, 255, 255)),
+        #     (start_pos_x, start_pos_y),
+        # )
+        #
         start_pos_y += self.screen.block_size
-        text = "Snake Pos X: {:.3f}".format(_snake_ai_state[0])
+        text = "Distance to Wall X: {:.3f}".format(_snake_ai_state[0])
         self.screen.surface.blit(
             self.screen.font.render(text, True, (255, 255, 255)),
             (start_pos_x, start_pos_y),
         )
 
         start_pos_y += self.screen.block_size
-        text = "Snake Pos Y: {:.3f}".format(_snake_ai_state[1])
+        text = "Distance to Wall Y: {:.3f}".format(_snake_ai_state[1])
         self.screen.surface.blit(
             self.screen.font.render(text, True, (255, 255, 255)),
             (start_pos_x, start_pos_y),
@@ -390,6 +475,60 @@ class Game:
 
         start_pos_y += self.screen.block_size
         text = "Fruit Pos Y: {:.3f}".format(_snake_ai_state[3])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Closest Segment Pos X: {:.3f}".format(_snake_ai_state[4])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Closest Segment Pos Y: {:.3f}".format(_snake_ai_state[5])
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "State Relative to Head (+1, 0): {}".format(
+            _snake_ai_state[6].name
+        )
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+        start_pos_y += self.screen.block_size
+        text = "State Relative to Head (-1, 0): {}".format(
+            _snake_ai_state[7].name
+        )
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+        start_pos_y += self.screen.block_size
+        text = "State Relative to Head (0, +1): {}".format(
+            _snake_ai_state[8].name
+        )
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+        start_pos_y += self.screen.block_size
+        text = "State Relative to Head (0, -1): {}".format(
+            _snake_ai_state[9].name
+        )
+        self.screen.surface.blit(
+            self.screen.font.render(text, True, (255, 255, 255)),
+            (start_pos_x, start_pos_y),
+        )
+
+        start_pos_y += self.screen.block_size
+        text = "Current Direction: {}".format(_snake_ai_state[10].name)
         self.screen.surface.blit(
             self.screen.font.render(text, True, (255, 255, 255)),
             (start_pos_x, start_pos_y),
@@ -421,22 +560,72 @@ class Game:
 
         self.clock.tick(self.framerate)
 
-    def training_ai_get_current_snake_state(self) -> list[float]:
+    def training_ai_get_current_snake_state(self) -> list[Any]:
         state = []
         _snake = self.snakes[self.current_ai_snake]
+        _other_snake = self.snakes[(self.current_ai_snake + 1) % 2]
+        _board_state, _ = self.state
 
-        normalised_position_x = _snake.body[0][0] / self.screen.n_cols
-        normalised_position_y = _snake.body[0][1] / self.screen.n_rows
-        normalised_fruit_position_x = (
-            self.food.position[0] / self.screen.n_cols
+        _distances_from_head_to_other_snake = (
+            self.distances_from_head_to_other_snake(_snake, _other_snake)
         )
-        normalised_fruit_position_y = (
-            self.food.position[1] / self.screen.n_cols
+        _closest_other_snake_segment = self.closest_other_snake_segment(
+            _distances_from_head_to_other_snake
         )
-        state.append(normalised_position_x)
-        state.append(normalised_position_y)
-        state.append(normalised_fruit_position_x)
-        state.append(normalised_fruit_position_y)
+        _distance_to_closest_snake_segment = (
+            _distances_from_head_to_other_snake[_closest_other_snake_segment]
+        )
+        _snake_head_position_x = _snake.body[0][0] + 1
+        _snake_head_position_y = _snake.body[0][1] + 1
+        _statemembers_around_head = []
+        for _direction in list(Direction):
+            _statemembers_around_head.append(
+                _board_state[
+                    (
+                        _snake_head_position_x + _direction.value[0],
+                        _snake_head_position_y + _direction.value[1],
+                    )
+                ]
+            )
+
+        normalised_distance_to_wall_x = (
+            min(_snake.body[0][0], abs(_snake.body[0][0] - self.screen.n_cols))
+            / self.screen.n_cols
+        )
+        normalised_distance_to_wall_y = (
+            min(_snake.body[0][1], abs(_snake.body[0][1] - self.screen.n_rows))
+            / self.screen.n_rows
+        )
+
+        normalised_fruit_position_x_delta = (
+            _snake.body[0][0] - self.food.position[0]
+        ) / self.screen.n_cols
+        normalised_fruit_position_y_delta = (
+            _snake.body[0][1] - self.food.position[1]
+        ) / self.screen.n_cols
+
+        # _closest_segment_x, _closest_segment_y = _other_snake.body[
+        #     _closest_segment_index
+        # ]
+        # _closest_segment_x /= self.screen.n_cols
+        # _closest_segment_y /= self.screen.n_rows
+
+        _closest_segment_x_delta = (
+            _distance_to_closest_snake_segment[0] / self.screen.n_cols
+        )
+        _closest_segment_y_delta = (
+            _distance_to_closest_snake_segment[1] / self.screen.n_rows
+        )
+
+        # state.append(normalised_position_x)
+        # state.append(normalised_position_y)
+        state.append(normalised_distance_to_wall_x)
+        state.append(normalised_distance_to_wall_y)
+        state.append(normalised_fruit_position_x_delta)
+        state.append(normalised_fruit_position_y_delta)
+        state.append(_closest_segment_x_delta)
+        state.append(_closest_segment_y_delta)
+        state += _statemembers_around_head
         state.append(_snake.current_direction)
 
         return state
@@ -453,18 +642,26 @@ class Game:
         next_state = []
         is_game_over = False
         is_food_eaten = False
-        
+
         _snake = self.snakes[self.current_ai_snake]
+        _other_snake = self.snakes[(self.current_ai_snake + 1) % 2]
+
         previous_direction = _snake.current_direction
 
         previous_distance_to_food = self.distance_to_food(_snake)
         previous_distance_to_wall = self.distance_to_wall(_snake)
+        previous_distance_to_other_snake = (
+            self.distance_to_closest_snake_segment(_snake, _other_snake)
+        )
 
         _snake.change_direction(input_direction)
         _snake.move()
 
         new_distance_to_food = self.distance_to_food(_snake)
         new_distance_to_wall = self.distance_to_wall(_snake)
+        new_distance_to_other_snake = self.distance_to_closest_snake_segment(
+            _snake, _other_snake
+        )
 
         if _snake.body[0] == self.food.position:
             is_food_eaten = True
@@ -482,6 +679,8 @@ class Game:
             new_distance_to_food=new_distance_to_food,
             previous_distance_to_wall=previous_distance_to_wall,
             new_distance_to_wall=new_distance_to_wall,
+            previous_distance_of_head_to_other_snake=previous_distance_to_other_snake,
+            new_distance_of_head_to_other_snake=new_distance_to_other_snake,
             is_game_over=is_game_over,
             is_food_eaten=is_food_eaten,
         )
@@ -503,10 +702,52 @@ class Game:
 
     def distance_to_wall(self, _snake: Snake) -> float:
         snake_x, snake_y = _snake.body[0]
-        distance_x = min(snake_x, self.screen.n_cols - snake_x)
+        distance_x = min(snake_x + 1, self.screen.n_cols - snake_x)
         distance_y = min(snake_y + 1, self.screen.n_rows - snake_y)
 
         return min(distance_x, distance_y)
+
+    def distances_from_head_to_other_snake(
+        self, _snake: Snake, _other_snake: Snake
+    ) -> list[tuple[int, int]]:
+        _deltas_of_head_to_other_snake = [
+            (
+                _other_snake_segment_pos[0] - _snake.body[0][0],
+                _other_snake_segment_pos[1] - _snake.body[0][1],
+            )
+            for _other_snake_segment_pos in _other_snake.body
+        ]
+        return _deltas_of_head_to_other_snake
+
+    def closest_other_snake_segment(
+        self, distances_from_head_to_other_snake: list[tuple[int, int]]
+    ) -> int:
+        _manhattan_distances_to_other_snake_segments = [
+            abs(_delta[0]) + abs(_delta[1])
+            for _delta in distances_from_head_to_other_snake
+        ]
+        _closest_segment_index = int(
+            np.array(_manhattan_distances_to_other_snake_segments).argmin()
+        )
+        return _closest_segment_index
+
+    def distance_to_closest_snake_segment(
+        self, _snake: Snake, _other_snake: Snake
+    ) -> int:
+        _distances_of_head_to_other_snake = (
+            self.distances_from_head_to_other_snake(_snake, _other_snake)
+        )
+        _closest_other_snake_segment = self.closest_other_snake_segment(
+            _distances_of_head_to_other_snake
+        )
+        _distance_to_closest_snake_segment = _distances_of_head_to_other_snake[
+            _closest_other_snake_segment
+        ]
+        manhattan_distance_to_closest_snake_segment = abs(
+            _distance_to_closest_snake_segment[0]
+        ) + abs(_distance_to_closest_snake_segment[1])
+
+        return manhattan_distance_to_closest_snake_segment
 
     def calculate_ai_reward(self, rewardContext: RewardContext) -> float:
         reward = 0.0
@@ -515,6 +756,8 @@ class Game:
         if rewardContext.is_food_eaten:
             return 1.0
         if rewardContext.new_distance_to_wall == 1:
+            return -1.0
+        if rewardContext.new_distance_of_head_to_other_snake == 1:
             return -1.0
 
         if (
@@ -525,37 +768,39 @@ class Game:
             == rewardContext.new_direction.value[1] * -1
         ):
             return -1.0
+
+        food_reward = 0.0
+        distance_to_other_snake_reward = 0.0
+
         distance_moved_toward_food = (
             rewardContext.previous_distance_to_food
             - rewardContext.new_distance_to_food
         )
-        # distance_moved_toward_wall = (
-        #     rewardContext.previous_distance_to_wall
-        #     - rewardContext.new_distance_to_wall
-        # )
-
-        food_reward = 0.0
-        wall_reward = 0.0
+        distance_moved_toward_other_snake = (
+            rewardContext.previous_distance_of_head_to_other_snake
+            - rewardContext.new_distance_of_head_to_other_snake
+        )
 
         # DEPENDANT ON MANHATTEN DISTANCE
         # TODO - set all this in training config
         MAX_DIST_FROM_FOOD = self.screen.n_cols + self.screen.n_rows
-        MAX_DIST_FROM_WALL = self.screen.n_cols // 2
+        MAX_DIST_FROM_OTHER_SNAKE = self.screen.n_cols + self.screen.n_rows
         FOOD_REWARD_MULTIPLIER = 10.0
-        WALL_REWARD_MULTIPLIER = 1.0
+        DISTANCE_TO_OTHER_SNAKE_MULTIPLIER = 2.0
 
         food_reward = (
             FOOD_REWARD_MULTIPLIER
             * distance_moved_toward_food
             / MAX_DIST_FROM_FOOD
         )
-        # wall_reward = -(
-        #     WALL_REWARD_MULTIPLIER
-        #     * distance_moved_toward_wall
-        #     / MAX_DIST_FROM_WALL
-        # )
+        distance_to_other_snake_reward = (
+            DISTANCE_TO_OTHER_SNAKE_MULTIPLIER
+            * distance_moved_toward_other_snake
+            / MAX_DIST_FROM_OTHER_SNAKE
+        )
 
-        reward += food_reward + wall_reward
+        reward += food_reward
+        reward += distance_to_other_snake_reward
 
         reward = min(reward, 1.0)
         reward = max(reward, -1.0)
