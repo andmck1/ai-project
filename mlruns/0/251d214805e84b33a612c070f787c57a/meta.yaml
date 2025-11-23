@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/alast/dev/uni-dev/mat502-ai/mat501-coursework-project/mlruns/0/251d214805e84b33a612c070f787c57a/artifacts
+end_time: 1763926205758
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 251d214805e84b33a612c070f787c57a
+run_name: glamorous-newt-814
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763926199153
+status: 3
+tags: []
+user_id: alast

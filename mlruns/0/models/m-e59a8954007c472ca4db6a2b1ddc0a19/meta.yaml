@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/alast/dev/uni-dev/mat502-ai/mat501-coursework-project/mlruns/0/models/m-e59a8954007c472ca4db6a2b1ddc0a19/artifacts
+creation_timestamp: 1763926200001
+experiment_id: '0'
+last_updated_timestamp: 1763926205405
+model_id: m-e59a8954007c472ca4db6a2b1ddc0a19
+model_type: null
+name: model
+source_run_id: 251d214805e84b33a612c070f787c57a
+status: 2
+status_message: null
