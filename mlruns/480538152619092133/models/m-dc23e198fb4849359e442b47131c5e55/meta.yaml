@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/480538152619092133/models/m-dc23e198fb4849359e442b47131c5e55/artifacts
+creation_timestamp: 1763996997673
+experiment_id: '480538152619092133'
+last_updated_timestamp: 1763997000364
+model_id: m-dc23e198fb4849359e442b47131c5e55
+model_type: null
+name: model
+source_run_id: 3738fb90f69b4061849403c2a44a7f2e
+status: 2
+status_message: null

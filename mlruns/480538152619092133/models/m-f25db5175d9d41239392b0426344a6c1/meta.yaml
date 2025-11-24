@@ -1,0 +1,11 @@
+artifact_location: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/480538152619092133/models/m-f25db5175d9d41239392b0426344a6c1/artifacts
+creation_timestamp: 1763991497801
+experiment_id: '480538152619092133'
+last_updated_timestamp: 1763991497801
+lifecycle_stage: active
+model_id: m-f25db5175d9d41239392b0426344a6c1
+model_type: null
+name: model
+source_run_id: 91221584619543c38c203d18398d7512
+status: 1
+status_message: null

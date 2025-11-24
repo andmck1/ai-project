@@ -1,0 +1,60 @@
+experiment_name: xgboost-snake
+train_validation_split: 0.2
+n_cross_validation_splits: 5
+number_episodes_random_simulation: 20
+max_steps_random_simulation: 50
+max_number_xgboost_runs: 100
+xgboost:
+  parameter_search:
+    max_depth:
+      range: [2, 12]
+      is_log: false
+      type: int
+    min_child_weight:
+      range: [1, 20]
+      is_log: false
+      type: int
+    gamma:
+      range: [0.0, 10.0]
+      is_log: false
+      type: float
+    subsample:
+      range: [0.5, 1.0]
+      is_log: false
+      type: float
+    colsample_bytree:
+      range: [0.5, 1.0]
+      is_log: false
+      type: float
+    colsample_bylevel:
+      range: [0.5, 1.0]
+      is_log: false
+      type: float
+    colsample_bynode:
+      range: [0.5, 1.0]
+      is_log: false
+      type: float
+    eta:
+      range: [0.001, 0.3]
+      is_log: true
+      type: float
+    lambda:
+      range: [0.0001, 10.0]
+      is_log: true
+      type: float
+    alpha:
+      range: [0.0001, 10.0]
+      is_log: true
+      type: float
+    max_delta_step:
+      range: [0, 10]
+      is_log: false
+      type: int
+    n_estimators:
+      range: [100, 2000]
+      is_log: false
+      type: int
+    scale_pos_weight:
+      range: [0.1, 10.0]
+      is_log: false
+      type: float

@@ -1,28 +1,36 @@
-from dataclasses import dataclass
-from typing import Any
+from src.config.logging import setup_logging
 from src.game.screen import Screen
 from src.game.game import Game
 from src.config.enums import Direction
 from src.ai.data import create_input_row
 
+from uuid import uuid4
 import numpy as np
 import matplotlib
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import matplotlib.figure
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.model_selection import train_test_split, cross_validate
+from sklearn.metrics import (
+    make_scorer,
+    r2_score,
+    mean_absolute_error,
+    mean_squared_error,
+)
 import pandas as pd
 import random
 import xgboost
 from xgboost import XGBRegressor
-
+from datetime import datetime as dt
+from dataclasses import dataclass
+from typing import Any
 import mlflow
-
 import logging
 
+setup_logging()
 logging.getLogger("mlflow").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 def init_data() -> pd.DataFrame:
@@ -143,20 +151,11 @@ def simulate_game_with_random_inputs(
         all_snake_lengths.append(snake_lengths)
 
     simulated_data = pd.concat(simulated_data_dfs, ignore_index=True)
-    total_n_frames = [
-        len(n_frame_steps) for n_frame_steps in all_n_frame_steps
-    ]
     max_snake_lengths = (
-        [
-            max([snake_length[0] for snake_length in _snake_lengths])
-            for _snake_lengths in all_snake_lengths
-        ],
-        [
-            max([snake_length[1] for snake_length in _snake_lengths])
-            for _snake_lengths in all_snake_lengths
-        ],
+        [max([snake_length[0] for snake_length in all_snake_lengths])],
+        [max([snake_length[1] for snake_length in all_snake_lengths])],
     )
-    return simulated_data, total_n_frames, max_snake_lengths
+    return simulated_data, all_n_frame_steps, max_snake_lengths
 
 
 def simulate_game_with_model_inputs(
@@ -195,95 +194,205 @@ def simulate_game_with_model_inputs(
 
 
 def train_xgboost_model(
-    X_train: pd.DataFrame, y_train: pd.DataFrame, xgb_kwargs: dict[str, Any]
-) -> xgboost.sklearn.XGBRegressor:
-    # TODO add k-fold
+    X_data: pd.DataFrame,
+    y_data: pd.DataFrame,
+    xgb_kwargs: dict[str, Any],
+    n_cross_validations: int,
+) -> tuple[dict, xgboost.sklearn.XGBModel]:
     mdl = XGBRegressor(**xgb_kwargs)
-    mdl.fit(X_train, y_train)
-    return mdl
+    scores = cross_validate(
+        mdl,
+        X_data,
+        y_data,
+        cv=n_cross_validations,
+        scoring={
+            "r2_score": make_scorer(r2_score),
+            "mean_squared_error": make_scorer(mean_squared_error),
+            "mean_absolute_error": make_scorer(mean_absolute_error),
+        },
+    )
+    return scores, mdl.fit(X_data, y_data)
 
 
 def evaluate_model(
-    y_true: pd.DataFrame,
-    predictions: pd.DataFrame,
-    total_n_frames_per_run: list[int],
-    max_snake_lengths_per_run: tuple[list[int], list[int]],
+    scores: dict, y_true: pd.Series, predictions: pd.Series
 ) -> tuple[dict[str, float], matplotlib.axes.Axes]:
-    max_snake_lengths_arr = np.array(max_snake_lengths_per_run).reshape(-1)
-
     metrics = {
-        "R2": r2_score(y_true, predictions),
-        "RMSE": mean_squared_error(y_true, predictions),
-        "MAE": mean_absolute_error(y_true, predictions),
-        "Median Run Length": np.median(total_n_frames_per_run),
-        "Average Run Length": np.mean(total_n_frames_per_run),
-        "Std Run Length": np.std(total_n_frames_per_run),
-        "Max Run Length": np.max(total_n_frames_per_run),
-        "Median Snake Length": np.median(max_snake_lengths_arr),
-        "Average Snake Length": np.mean(max_snake_lengths_arr),
-        "Std Snake Length": np.std(max_snake_lengths_arr),
-        "Max Snake Length": np.max(max_snake_lengths_arr),
+        "R2_avg": scores["test_r2_score"].mean(),
+        "R2_std": scores["test_r2_score"].std(),
+        "RMSE_avg": np.sqrt(scores["test_mean_squared_error"]).mean(),
+        "RMSE_std": np.sqrt(scores["test_mean_squared_error"]).std(),
+        "MAE_avg": scores["test_mean_absolute_error"].mean(),
+        "MAE_std": scores["test_mean_absolute_error"].std(),
     }
-
-    plt = pd.Series(y_true.values.reshape(-1) - predictions).plot(
-        kind="hist", bins=100
-    )
+    plt = (y_true - predictions).plot(kind="hist", bins=100)
     return metrics, plt
+
+
+def generate_run_name(now: dt) -> str:
+    uuid_str = uuid4()
+    now_str = now.strftime("%Y-%m-%d-%H-%M-%S")
+    return f"{now_str}_{uuid_str}"
+
+
+def sample_xgboost_parameters(
+    params: dict[str, dict[str, list[int | float] | bool | str]],
+) -> dict[str, int | float]:
+    sampled_params = dict()
+
+    for param_key, param_info in params.items():
+        assert isinstance(param_info["range"], list)
+        assert isinstance(param_info["is_log"], bool)
+
+        param_value_min = param_info["range"][0]
+        param_value_max = param_info["range"][1]
+
+        is_param_value_range_log_scaled = param_info["is_log"]
+        param_value = None
+        match param_info["type"]:
+            case "int":
+                assert isinstance(param_value_min, int)
+                assert isinstance(param_value_max, int)
+                if is_param_value_range_log_scaled:
+                    param_value = np.exp(
+                        np.random.uniform(
+                            np.log(param_value_min), np.log(param_value_max)
+                        )
+                    )
+                else:
+                    param_value = random.randint(
+                        param_value_min, param_value_max
+                    )
+            case "float":
+                assert isinstance(param_value_min, float)
+                assert isinstance(param_value_max, float)
+                if is_param_value_range_log_scaled:
+                    param_value = np.exp(
+                        np.random.uniform(
+                            np.log(param_value_min), np.log(param_value_max)
+                        )
+                    )
+                else:
+                    param_value = np.random.uniform(
+                        param_value_min, param_value_max
+                    )
+            case _:
+                param_value = None
+        sampled_params[param_key] = param_value
+    return sampled_params
 
 
 @dataclass(kw_only=True)
 class ExperimentContext:
+    experiment_name: str
+    train_validation_split: float
+    n_cross_validation_splits: int
     number_episodes_random_simulation: int
     max_steps_random_simulation: int
-    number_episodes_model_simulation: int
-    max_steps_model_simulation: int
+    max_number_xgboost_runs: int
+    xgboost_parameter_search: dict[
+        str, dict[str, list[int | float] | bool | str]
+    ]
 
 
 def run_experiment(context: ExperimentContext) -> None:
+    logger.info("Running experiment")
     mlflow.autolog()
+    # random_simulation_time = 0
+    # model_from_random_simulation_train_time = 0
 
-    simulated_with_random_inputs_data, total_n_frames, max_snake_lengths = (
-        simulate_game_with_random_inputs(
-            num_episodes=context.number_episodes_random_simulation,
-            max_steps=context.max_steps_random_simulation,
-        )
+    # start_time = dt.now()
+    logger.info("Simulating game with random inputs")
+    simulated_with_random_inputs_data, _, _ = simulate_game_with_random_inputs(
+        num_episodes=context.number_episodes_random_simulation,
+        max_steps=context.max_steps_random_simulation,
     )
+    # end_time = dt.now()
+    # random_simulation_time = start_time - end_time
 
     # TODO - kfold
-    x_cols = [
-        col
-        for col in simulated_with_random_inputs_data.columns
-        if col != "reward"
-    ]
+
+    experiment = mlflow.get_experiment_by_name(context.experiment_name)
+    if experiment is None:
+        experiment_id = mlflow.create_experiment(context.experiment_name)
+    else:
+        experiment_id = experiment.experiment_id
+    runs_start_time = dt.now()
+    for _ in tqdm(
+        range(context.max_number_xgboost_runs), desc="Hyperparameter Search"
+    ):
+        xgboost_params = sample_xgboost_parameters(
+            context.xgboost_parameter_search
+        )
+        mlflow_run(
+            experiment_id,
+            runs_start_time,
+            context.train_validation_split,
+            context.n_cross_validation_splits,
+            xgboost_params,
+            simulated_with_random_inputs_data,
+        )
+
+
+def mlflow_run(
+    experiment_id: str,
+    start_time: dt,
+    train_validation_split: float,
+    n_cross_validation_splits: int,
+    xgboost_parameters: dict[str, int | float],
+    data: pd.DataFrame,
+) -> None:
+    x_cols = [col for col in data.columns if col != "reward"]
     y_col = ["reward"]
     X_train, X_test, y_train, y_test = train_test_split(
-        simulated_with_random_inputs_data[x_cols],
-        simulated_with_random_inputs_data[y_col],
-        test_size=0.33,
+        data[x_cols],
+        data[y_col],
+        test_size=train_validation_split,
         shuffle=True,
     )
+    X_train = pd.DataFrame(X_train)
+    X_test = pd.DataFrame(X_test)
+    y_train = pd.DataFrame(y_train)
+    y_test = pd.DataFrame(y_test)
 
-    # TODO - don't use asserts
-    assert isinstance(X_train, pd.DataFrame)
-    assert isinstance(X_test, pd.DataFrame)
-    assert isinstance(y_train, pd.DataFrame)
-    assert isinstance(y_test, pd.DataFrame)
-
-    with mlflow.start_run(experiment_id="xgboost-snake"):
-        model_from_random_simulation = train_xgboost_model(
-            X_train=X_train, y_train=y_train, xgb_kwargs=dict(n_estimators=100)
+    run_name = generate_run_name(start_time)
+    with mlflow.start_run(experiment_id=experiment_id, run_name=run_name):
+        start_time = dt.now()
+        model_scores, model_from_random_simulation = train_xgboost_model(
+            X_data=X_train,
+            y_data=y_train,
+            xgb_kwargs=xgboost_parameters,
+            n_cross_validations=n_cross_validation_splits,
         )
+        end_time = dt.now()
+        model_from_random_simulation_train_time = end_time - start_time
+
         predictions = model_from_random_simulation.predict(X_test)
         model_metrics, model_residuals_hist = evaluate_model(
-            y_test, predictions, total_n_frames, max_snake_lengths
+            model_scores, y_test.iloc[:, 0], predictions
+        )
+        model_metrics["model_from_random_simulation_train_time_s"] = round(
+            model_from_random_simulation_train_time.total_seconds() / 60, 3
         )
         model_residuals_hist_fig = model_residuals_hist.get_figure()
-        assert isinstance(model_residuals_hist_fig, matplotlib.figure.Figure)
-
-        mlflow.log_metrics(model_metrics)
         mlflow.log_figure(
             model_residuals_hist_fig,
             "model_from_random_simulation_residuals_histogram.png",
         )
-
+        assert isinstance(model_residuals_hist_fig, matplotlib.figure.Figure)
         plt.close(model_residuals_hist_fig)
+
+        mlflow.log_metrics(model_metrics)
+
+    # max_snake_lengths_arr = np.array(max_snake_lengths_per_run).reshape(-1)
+    # "Median Run Length": round(np.median(total_n_frames_per_run), 3),
+    # "Average Run Length": round(np.mean(total_n_frames_per_run), 3),
+    # "Std Run Length": round(np.std(total_n_frames_per_run), 3),
+    # "Max Run Length": round(np.max(total_n_frames_per_run), 3),
+    # "Median End Snake Length": round(np.median(max_snake_lengths_arr), 3),
+    # "Average End Snake Length": round(np.mean(max_snake_lengths_arr), 3),
+    # "Std End Snake Length": round(np.std(max_snake_lengths_arr), 3),
+    # "Max End Snake Length": round(np.max(max_snake_lengths_arr), 3),
+    # model_metrics["random_simulation_time (m)"] = round(
+    #     random_simulation_time.total_seconds() / 60, 3
+    # )

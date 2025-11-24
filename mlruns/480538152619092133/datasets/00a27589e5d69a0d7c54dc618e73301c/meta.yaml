@@ -1,0 +1,42 @@
+digest: 348da4bd
+name: dataset
+profile: '{"num_rows": 178, "num_elements": 7476}'
+schema: '{"mlflow_colspec": [{"type": "double", "name": 0, "required": true}, {"type":
+  "double", "name": 1, "required": true}, {"type": "double", "name": 2, "required":
+  true}, {"type": "double", "name": 3, "required": true}, {"type": "double", "name":
+  4, "required": true}, {"type": "double", "name": 5, "required": true}, {"type":
+  "long", "name": 6, "required": true}, {"type": "long", "name": 7, "required": true},
+  {"type": "long", "name": 8, "required": true}, {"type": "long", "name": 9, "required":
+  true}, {"type": "long", "name": "input_UP", "required": true}, {"type": "long",
+  "name": "input_DOWN", "required": true}, {"type": "long", "name": "input_LEFT",
+  "required": true}, {"type": "long", "name": "input_RIGHT", "required": true}, {"type":
+  "long", "name": "current_UP", "required": true}, {"type": "long", "name": "current_DOWN",
+  "required": true}, {"type": "long", "name": "current_LEFT", "required": true}, {"type":
+  "long", "name": "current_RIGHT", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_EDGE", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_EMPTY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_MY_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_OTHER_SNAKE_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_OTHER_SNAKE_HEAD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  -1)_FOOD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_EDGE", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_EMPTY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_MY_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_OTHER_SNAKE_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_OTHER_SNAKE_HEAD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(0,
+  1)_FOOD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_EDGE", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_EMPTY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_MY_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_OTHER_SNAKE_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_OTHER_SNAKE_HEAD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(-1,
+  0)_FOOD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_EDGE", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_EMPTY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_MY_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_OTHER_SNAKE_BODY", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_OTHER_SNAKE_HEAD", "required": true}, {"type": "long", "name": "is_state_at_head_offset_(1,
+  0)_FOOD", "required": true}]}'
+source: '{"tags": {"mlflow.user": "alast", "mlflow.source.name": "C:\\Users\\alast\\dev\\uni-cgt\\mat501-applied-mathematics-and-ai\\mat501-coursework-project\\src\\cli\\__main__.py",
+  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "6f4fea466c8939494aba65b42fd203fd456665ca"}}'
+source_type: code

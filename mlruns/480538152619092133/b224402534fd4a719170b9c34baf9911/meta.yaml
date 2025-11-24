@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/480538152619092133/b224402534fd4a719170b9c34baf9911/artifacts
+end_time: 1763980466597
+entry_point_name: ''
+experiment_id: '480538152619092133'
+lifecycle_stage: active
+run_id: b224402534fd4a719170b9c34baf9911
+run_name: spiffy-lark-165
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763980457317
+status: 3
+tags: []
+user_id: alast
