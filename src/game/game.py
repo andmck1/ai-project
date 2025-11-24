@@ -1,3 +1,4 @@
+from src.config.pygame_import import pygame
 from src.actors import Snake, Food
 from src.game.state import GameState
 from src.game.screen import Screen
@@ -7,9 +8,8 @@ from src.ai.data import INPUT_ROW_COLUMNS, create_input_row
 
 import random
 from typing import Any
-import pygame
+import numpy as np
 import pandas as pd
-from pathlib import Path
 
 
 class Game:
@@ -26,7 +26,7 @@ class Game:
         screen: Screen,
         window_title: str,
         framerate: int = 8,
-        ai_model_path: Path = Path("./models/xgboost.ubj"),
+        ai_model_mlflow_run_id: str = "",
         is_two_ai_playing: bool = False,
         is_draw_enabled: bool = True,
         is_ai_random: bool = True,
@@ -87,7 +87,7 @@ class Game:
             screen=screen,
             snakes=snakes,
             food=food,
-            ai_model_path=ai_model_path,
+            ai_model_mlflow_run_id=ai_model_mlflow_run_id,
         )
         if not is_ai_random:
             self.state.load_ai_model()
@@ -128,8 +128,6 @@ class Game:
         return random_direction
 
     def model_ai_move(self) -> Direction:
-        self.state.current_ai_snake = 1
-
         if self.state.ai_model is not None:
             state = self.training_ai_get_current_snake_state()
             input_rows = []
@@ -139,10 +137,24 @@ class Game:
                 )
                 input_rows.append(input_row)
             input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
-            direction = list(Direction)[
-                self.state.ai_model.predict(input_rows).argmax()
+            allowed_moves = self.check_allowed_moves(
+                self.state.snakes[self.state.current_ai_snake]
+            )
+            directions = list(
+                np.array(list(Direction))[
+                    self.state.ai_model.predict(input_rows).argsort()[::-1]
+                ]
+            )
+            direction = [
+                direction
+                for direction in directions
+                if direction in allowed_moves
             ]
-            return direction
+            if len(direction) > 0:
+                return direction[0]
+            else:
+                # dead
+                return Direction.UP
         else:
             print("Error, unbound AI")
             return Direction.UP
@@ -182,6 +194,7 @@ class Game:
                 _snake.change_direction(self.ai_move())
                 if self.is_ai_enabled:
                     _snake.move()
+                    self.state.increment_current_ai_index()
             else:
                 _snake.change_direction(self.state.last_input_direction)
                 _snake.move()
@@ -413,15 +426,31 @@ class Game:
 
         return state
 
+    def check_allowed_moves(self, snake: Snake) -> list[Direction]:
+        current_board_state, _ = self.state.board_state
+        allowed_directions = []
+        for direction in list(Direction):
+            check_pos = (
+                snake.body[0][0] + direction.value[0] + 1,
+                snake.body[0][1] + direction.value[1] + 1,
+            )
+            check_state = current_board_state[check_pos]
+            if check_state in [StateMember.EMPTY, StateMember.FOOD]:
+                allowed_directions.append(direction)
+        return allowed_directions
+
     def training_ai_step(
         self, input_direction: Direction
-    ) -> tuple[list[int] | None, float, bool] | None:
+    ) -> tuple[list[int] | None, float, bool] | None | int:
         reward = 0.0
         next_state = []
         is_game_over = False
         is_food_eaten = False
 
         _snake = self.state.snakes[self.state.current_ai_snake]
+        allowed_directions = self.check_allowed_moves(_snake)
+        if input_direction not in allowed_directions:
+            return -1
         _other_snake = self.state.snakes[(self.state.current_ai_snake + 1) % 2]
 
         previous_direction = _snake.current_direction

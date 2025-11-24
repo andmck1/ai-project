@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/504048267982985982/788469e1fa7648daa2afeda09fb3bdc9/artifacts
+end_time: 1764023096610
+entry_point_name: ''
+experiment_id: '504048267982985982'
+lifecycle_stage: active
+run_id: 788469e1fa7648daa2afeda09fb3bdc9
+run_name: 2025-11-24-22-17-45_55a37981-37c5-4687-b580-ba9e14b36fb2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764023013496
+status: 3
+tags: []
+user_id: alast

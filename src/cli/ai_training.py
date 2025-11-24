@@ -1,13 +1,11 @@
-from src.config.logging import setup_logging
+from src.config.logging import create_logger
 from src.ai.train_xgboost import run_experiment, ExperimentContext
 
 import typer
 from pathlib import Path
 import yaml
-import logging
 
-setup_logging()
-logger = logging.getLogger(__name__)
+logger = create_logger(__name__)
 
 app = typer.Typer()
 
@@ -32,6 +30,12 @@ def run_mlflow_experiment(xgboost_config_path: Path) -> None:
             max_number_xgboost_runs=xgboost_config["max_number_xgboost_runs"],
             xgboost_parameter_search=xgboost_config["xgboost"][
                 "parameter_search"
+            ],
+            max_test_simulation_episodes=xgboost_config[
+                "max_test_simulation_episodes"
+            ],
+            max_n_test_simulation_steps=xgboost_config[
+                "max_n_test_simulation_steps"
             ],
         )
 

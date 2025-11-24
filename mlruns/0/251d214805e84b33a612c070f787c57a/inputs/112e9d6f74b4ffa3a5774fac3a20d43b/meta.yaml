@@ -1,6 +1,0 @@
-destination_id: eff02af247e5605ba028319284665a5d
-destination_type: RUN
-source_id: eff02af247e5605ba028319284665a5d
-source_type: DATASET
-tags:
-  mlflow.data.context: eval

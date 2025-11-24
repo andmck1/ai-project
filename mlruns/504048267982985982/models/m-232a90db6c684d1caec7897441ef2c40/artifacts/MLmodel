@@ -1,0 +1,22 @@
+artifact_path: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/504048267982985982/models/m-232a90db6c684d1caec7897441ef2c40/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.13.3
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBRegressor
+    model_format: ubj
+    xgb_version: 3.1.2
+mlflow_version: 3.6.0
+model_id: m-232a90db6c684d1caec7897441ef2c40
+model_size_bytes: 841232
+model_uuid: m-232a90db6c684d1caec7897441ef2c40
+prompts: null
+run_id: 555720a71c0a4b01a5e6c63138894f8f
+utc_time_created: '2025-11-24 22:27:02.215286'

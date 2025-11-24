@@ -1,9 +1,0 @@
-digest: 045b6e26
-name: dataset
-profile: '{"features_shape": [568, 42], "features_size": 23856, "features_nbytes":
-  95424}'
-schema: '{"mlflow_tensorspec": {"features": "[{\"type\": \"tensor\", \"tensor-spec\":
-  {\"dtype\": \"float32\", \"shape\": [-1, 42]}}]", "targets": null}}'
-source: '{"tags": {"mlflow.user": "alast", "mlflow.source.name": "C:\\Users\\alast\\dev\\uni-cgt\\mat501-applied-mathematics-and-ai\\mat501-coursework-project\\src\\cli\\__main__.py",
-  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "6f4fea466c8939494aba65b42fd203fd456665ca"}}'
-source_type: code

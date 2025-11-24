@@ -1,6 +1,6 @@
-artifact_location: file:///C:/Users/alast/dev/uni-dev/mat502-ai/mat501-coursework-project/mlruns/0
-creation_time: 1763925994445
+artifact_location: mlflow-artifacts:/0
+creation_time: 1764022619987
 experiment_id: '0'
-last_update_time: 1763925994445
+last_update_time: 1764022619987
 lifecycle_stage: active
 name: Default

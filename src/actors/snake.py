@@ -1,9 +1,8 @@
+from src.config.pygame_import import pygame
 from src.actors.base import PyGameObject
 
 from src.game.screen import Screen
 from src.config.enums import Colour, Direction
-
-import pygame
 
 
 class Snake(PyGameObject):

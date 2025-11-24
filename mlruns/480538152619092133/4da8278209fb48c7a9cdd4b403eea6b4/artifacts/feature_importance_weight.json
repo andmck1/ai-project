@@ -1,1 +1,0 @@
-{"0": 5.0, "1": 2.0, "2": 3.0, "5": 2.0, "input_RIGHT": 1.0, "current_LEFT": 1.0, "current_RIGHT": 1.0, "is_state_at_head_offset_(0, -1)_EMPTY": 1.0, "is_state_at_head_offset_(0, 1)_EMPTY": 1.0, "is_state_at_head_offset_(0, 1)_FOOD": 4.0, "is_state_at_head_offset_(-1, 0)_EMPTY": 1.0, "is_state_at_head_offset_(-1, 0)_FOOD": 2.0}

@@ -1,0 +1,6 @@
+destination_id: m-12c34657adae4399b33b76cb2200099a
+destination_type: MODEL_OUTPUT
+source_id: m-12c34657adae4399b33b76cb2200099a
+source_type: RUN_OUTPUT
+step: 0
+tags: {}

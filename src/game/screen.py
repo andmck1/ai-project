@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-import pygame
 
 from src.config.enums import Colour
+from src.config.pygame_import import pygame
 
 
 @dataclass

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/alast/dev/uni-cgt/mat501-applied-mathematics-and-ai/mat501-coursework-project/mlruns/504048267982985982/models/m-21e501b668eb458b984ffa279e4f3925/artifacts
+creation_timestamp: 1764023313548
+experiment_id: '504048267982985982'
+last_updated_timestamp: 1764023317615
+model_id: m-21e501b668eb458b984ffa279e4f3925
+model_type: null
+name: xgboost-model
+source_run_id: fcfb8d164ddd4c9b8e9067023d1ec9d4
+status: 2
+status_message: null
