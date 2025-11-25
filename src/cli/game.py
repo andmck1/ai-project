@@ -2,7 +2,6 @@ from src.game.screen import Screen
 from src.game.game import Game
 
 import typer
-from pathlib import Path
 
 app = typer.Typer()
 __run_app = typer.Typer()
@@ -16,7 +15,7 @@ def custom(
     is_ai_random: bool = True,
     is_ai_enabled: bool = True,
     is_debug_enabled: bool = False,
-    ai_model_mlflow_run_id: str = "",
+    ai_mlflow_model_path_or_uri: str = "",
     is_two_ai_playing: bool = False,
 ) -> None:
     screen = Screen(is_draw_enabled=is_draw_enabled)
@@ -25,7 +24,7 @@ def custom(
         "MAT501 - Coursework",
         is_draw_enabled=is_draw_enabled,
         framerate=framerate,
-        ai_model_mlflow_run_id=ai_model_mlflow_run_id,
+        ai_mlflow_model_path_or_uri=ai_mlflow_model_path_or_uri,
         is_ai_random=is_ai_random,
         is_ai_enabled=is_ai_enabled,
         is_debug_enabled=is_debug_enabled,
@@ -47,8 +46,9 @@ def no_ai() -> None:
 
 @__run_app.command()
 def only_ai(ai_model_mlflow_run_id: str) -> None:
+    ai_model_mlflow_run_path = f"runs:/{ai_model_mlflow_run_id}/xgboost-model"
     custom(
-        ai_model_mlflow_run_id=ai_model_mlflow_run_id,
+        ai_mlflow_model_path_or_uri=ai_model_mlflow_run_path,
         framerate=15,
         is_draw_enabled=True,
         is_ai_random=False,
@@ -61,9 +61,10 @@ def only_ai(ai_model_mlflow_run_id: str) -> None:
 @__run_app.command()
 def normal(ai_model_mlflow_run_id: str) -> None:
     custom(
-        ai_model_mlflow_run_id=ai_model_mlflow_run_id,
+        ai_mlflow_model_path_or_uri=ai_model_mlflow_run_id,
         is_draw_enabled=True,
         is_ai_random=False,
         is_ai_enabled=True,
         is_debug_enabled=True,
+        framerate=10,
     )

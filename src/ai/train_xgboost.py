@@ -343,6 +343,7 @@ def mlflow_run(
     max_n_test_simulation_steps: int,
     max_test_simulation_episodes: int,
     data: pd.DataFrame,
+    description: str,
     random_move_rate: float = 0.0,
 ) -> pd.DataFrame:
     x_cols = [col for col in data.columns if col != "reward"]
@@ -359,7 +360,9 @@ def mlflow_run(
     y_test = pd.DataFrame(y_test)
 
     run_name = generate_run_name(start_time)
-    with mlflow.start_run(experiment_id=experiment_id, run_name=run_name):
+    with mlflow.start_run(
+        experiment_id=experiment_id, run_name=run_name, description=description
+    ):
         start_time = dt.now()
         model_scores, model_from_random_simulation = train_xgboost_model(
             X_data=X_train,
@@ -393,8 +396,8 @@ def mlflow_run(
         ) = simulate_game_with_model_inputs(
             model_from_random_simulation,
             random_move_rate,
-            max_n_test_simulation_steps,
-            max_test_simulation_episodes,
+            max_steps=max_n_test_simulation_steps,
+            num_episodes=max_test_simulation_episodes,
             is_multiproc=False,
         )
         max_snake_lengths_arr = np.array(max_snake_lengths_per_run).reshape(-1)
@@ -429,19 +432,13 @@ def mlflow_run(
 
 def run_experiment(context: ExperimentContext) -> None:
     logger.info("Running experiment")
-    # os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlruns.db"
-    mlflow.autolog()
-    # random_simulation_time = 0
-    # model_from_random_simulation_train_time = 0
 
-    # start_time = dt.now()
+    mlflow.autolog()
     logger.info("Simulating game with random inputs")
     simulated_with_random_inputs_data, _, _ = simulate_game_with_random_inputs(
         num_episodes=context.number_episodes_random_simulation,
         max_steps=context.max_steps_random_simulation,
     )
-    # end_time = dt.now()
-    # random_simulation_time = start_time - end_time
 
     experiment = mlflow.get_experiment_by_name(context.experiment_name)
     if experiment is None:
@@ -463,6 +460,7 @@ def run_experiment(context: ExperimentContext) -> None:
         data=simulated_with_random_inputs_data,
         max_test_simulation_episodes=context.max_test_simulation_episodes,
         max_n_test_simulation_steps=context.max_n_test_simulation_steps,
+        description="Random Simulation Data",
     )
 
     with mp.Pool(N_CORES) as pool:
@@ -493,6 +491,7 @@ def run_experiment(context: ExperimentContext) -> None:
         data=all_simulated_results,
         max_test_simulation_episodes=context.max_test_simulation_episodes,
         max_n_test_simulation_steps=context.max_n_test_simulation_steps,
+        description="Model Simulation Data",
     )
     with mp.Pool(N_CORES) as pool:
         simulated_results_dfs = list(

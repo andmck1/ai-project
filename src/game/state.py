@@ -13,7 +13,7 @@ class GameState:
     screen: Screen
     snakes: list[Snake]
     food: Food
-    ai_model_mlflow_run_id: str
+    ai_model_mlflow_path_or_uri: str
     last_input_direction: Direction = Direction.RIGHT
     current_ai_snake: int = 0
     ai_model: xgboost.sklearn.XGBRegressor = xgboost.sklearn.XGBRegressor()
@@ -76,9 +76,7 @@ class GameState:
         return _board_state, _state
 
     def load_ai_model(self) -> None:
-        self.ai_model = load_model(
-            f"runs:/{self.ai_model_mlflow_run_id}/xgboost-model"
-        )
+        self.ai_model = load_model(self.ai_model_mlflow_path_or_uri)
 
     def distance_to_food(self, _snake: Snake) -> float:
         return abs(self.food.position[0] - _snake.body[0][0]) + abs(

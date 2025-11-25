@@ -26,7 +26,7 @@ class Game:
         screen: Screen,
         window_title: str,
         framerate: int = 8,
-        ai_model_mlflow_run_id: str = "",
+        ai_mlflow_model_path_or_uri: str = "",
         is_two_ai_playing: bool = False,
         is_draw_enabled: bool = True,
         is_ai_random: bool = True,
@@ -87,10 +87,14 @@ class Game:
             screen=screen,
             snakes=snakes,
             food=food,
-            ai_model_mlflow_run_id=ai_model_mlflow_run_id,
+            ai_model_mlflow_path_or_uri=ai_mlflow_model_path_or_uri,
         )
         if not is_ai_random:
             self.state.load_ai_model()
+        if self.is_two_ai_playing:
+            self.state.current_ai_snake = 0
+        else:
+            self.state.current_ai_snake = 1
 
         # init
         pygame.init()
@@ -174,7 +178,7 @@ class Game:
 
         rewardContexts = []
 
-        for _, _snake in enumerate(self.state.snakes):
+        for _snake in self.state.snakes:
             is_food_eaten = False
             is_game_over = False
             previous_direction = _snake.current_direction
@@ -194,7 +198,8 @@ class Game:
                 _snake.change_direction(self.ai_move())
                 if self.is_ai_enabled:
                     _snake.move()
-                    self.state.increment_current_ai_index()
+                    if self.is_two_ai_playing:
+                        self.state.increment_current_ai_index()
             else:
                 _snake.change_direction(self.state.last_input_direction)
                 _snake.move()
