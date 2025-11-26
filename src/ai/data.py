@@ -1,5 +1,52 @@
-from typing import Any
 from src.config.enums import Direction, StateMember
+from typing import Any
+import pandas as pd
+
+INPUT_ROW_COLUMNS = [
+    "normalised_distance_to_wall_x",
+    "normalised_distance_to_wall_y",
+    "normalised_fruit_position_x_delta",
+    "normalised_fruit_position_y_delta",
+    "closest_segment_x_delta",
+    "closest_segment_y_delta",
+    "input_UP",
+    "input_DOWN",
+    "input_LEFT",
+    "input_RIGHT",
+    "current_UP",
+    "current_DOWN",
+    "current_LEFT",
+    "current_RIGHT",
+    "reward",
+    "is_state_at_head_offset_(0, -1)_EDGE",
+    "is_state_at_head_offset_(0, -1)_EMPTY",
+    "is_state_at_head_offset_(0, -1)_MY_BODY",
+    "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_BODY",
+    "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_HEAD",
+    "is_state_at_head_offset_(0, -1)_FOOD",
+    "is_state_at_head_offset_(0, 1)_EDGE",
+    "is_state_at_head_offset_(0, 1)_EMPTY",
+    "is_state_at_head_offset_(0, 1)_MY_BODY",
+    "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_BODY",
+    "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_HEAD",
+    "is_state_at_head_offset_(0, 1)_FOOD",
+    "is_state_at_head_offset_(-1, 0)_EDGE",
+    "is_state_at_head_offset_(-1, 0)_EMPTY",
+    "is_state_at_head_offset_(-1, 0)_MY_BODY",
+    "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_BODY",
+    "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_HEAD",
+    "is_state_at_head_offset_(-1, 0)_FOOD",
+    "is_state_at_head_offset_(1, 0)_EDGE",
+    "is_state_at_head_offset_(1, 0)_EMPTY",
+    "is_state_at_head_offset_(1, 0)_MY_BODY",
+    "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_BODY",
+    "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_HEAD",
+    "is_state_at_head_offset_(1, 0)_FOOD",
+]
+
+
+def init_data() -> pd.DataFrame:
+    return pd.DataFrame(columns=pd.Index(INPUT_ROW_COLUMNS))
 
 
 def create_state_member_text(
@@ -38,12 +85,8 @@ def create_input_row(
     state: list[Any],
     reward: float,
     direction: Direction,
-    column_names: list[str],
 ) -> dict[str, int | float]:
-    row: dict[str, int | float] = {k: 0 for k in column_names}
-
-    row = {k: 0 for k in column_names}
-
+    row: dict[str, int | float] = {k: 0 for k in INPUT_ROW_COLUMNS}
     row["normalised_distance_to_wall_x"] = state[0]
     row["normalised_distance_to_wall_y"] = state[1]
     row["normalised_fruit_position_x_delta"] = state[2]
@@ -76,50 +119,3 @@ def create_input_row(
     row[f"input_{direction.name}"] = 1
     row["reward"] = reward
     return row
-
-
-INPUT_ROW_COLUMNS = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    "input_UP",
-    "input_DOWN",
-    "input_LEFT",
-    "input_RIGHT",
-    "current_UP",
-    "current_DOWN",
-    "current_LEFT",
-    "current_RIGHT",
-    "reward",
-    "is_state_at_head_offset_(0, -1)_EDGE",
-    "is_state_at_head_offset_(0, -1)_EMPTY",
-    "is_state_at_head_offset_(0, -1)_MY_BODY",
-    "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_BODY",
-    "is_state_at_head_offset_(0, -1)_OTHER_SNAKE_HEAD",
-    "is_state_at_head_offset_(0, -1)_FOOD",
-    "is_state_at_head_offset_(0, 1)_EDGE",
-    "is_state_at_head_offset_(0, 1)_EMPTY",
-    "is_state_at_head_offset_(0, 1)_MY_BODY",
-    "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_BODY",
-    "is_state_at_head_offset_(0, 1)_OTHER_SNAKE_HEAD",
-    "is_state_at_head_offset_(0, 1)_FOOD",
-    "is_state_at_head_offset_(-1, 0)_EDGE",
-    "is_state_at_head_offset_(-1, 0)_EMPTY",
-    "is_state_at_head_offset_(-1, 0)_MY_BODY",
-    "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_BODY",
-    "is_state_at_head_offset_(-1, 0)_OTHER_SNAKE_HEAD",
-    "is_state_at_head_offset_(-1, 0)_FOOD",
-    "is_state_at_head_offset_(1, 0)_EDGE",
-    "is_state_at_head_offset_(1, 0)_EMPTY",
-    "is_state_at_head_offset_(1, 0)_MY_BODY",
-    "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_BODY",
-    "is_state_at_head_offset_(1, 0)_OTHER_SNAKE_HEAD",
-    "is_state_at_head_offset_(1, 0)_FOOD",
-]

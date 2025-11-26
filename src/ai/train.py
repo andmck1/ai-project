@@ -4,7 +4,7 @@ from src.config.logging import create_logger
 from src.game.screen import Screen
 from src.game.game import Game
 from src.config.enums import Direction
-from src.ai.data import create_input_row
+from src.ai.data import create_input_row, init_data
 
 # misc
 from uuid import uuid4
@@ -36,33 +36,14 @@ from sklearn.metrics import (
     mean_squared_error,
 )
 import xgboost
-from xgboost import XGBRegressor
 import mlflow
-from mlflow.xgboost import log_model
+import mlflow.xgboost
 import mlflow.data.pandas_dataset
 
 N_CORES = 6
 
 logger = create_logger(__name__)
 logging.getLogger("mlflow").setLevel(logging.ERROR)
-
-
-def init_data() -> pd.DataFrame:
-    screen = Screen(is_draw_enabled=False)
-    game = Game(
-        screen,
-        "MAT501 - Coursework",
-        is_draw_enabled=False,
-        framerate=0,
-    )
-    state = game.training_ai_get_current_snake_state()
-    data_cols = (
-        list(range(len(state) - 1))
-        + [f"input_{direction.name}" for direction in list(Direction)]
-        + [f"current_{direction.name}" for direction in list(Direction)]
-        + ["reward"]
-    )
-    return pd.DataFrame(columns=pd.Index(data_cols))
 
 
 def simulate_game_run(
@@ -107,7 +88,7 @@ def simulate_game_run(
                 start_inference_time = dt.now()
                 for direction in list(Direction):
                     input_row = create_input_row(
-                        snake_idx, state, 0, direction, list(data.columns)
+                        snake_idx, state, 0, direction
                     )
                     input_rows.append(input_row)
                 input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
@@ -139,9 +120,7 @@ def simulate_game_run(
             _, reward, game_over = result
 
             assert isinstance(direction, Direction)
-            row = create_input_row(
-                snake_idx, state, reward, direction, list(data.columns)
-            )
+            row = create_input_row(snake_idx, state, reward, direction)
 
             if len(data) > 0:
                 data = pd.concat(
@@ -269,13 +248,20 @@ def simulate_game_with_model_inputs(
 
 
 def train_model(
-    model_fn: xgboost.sklearn.XGBRegressor | sklearn.linear_model.lasso,
+    model_name: str,
     X_data: pd.DataFrame,
     y_data: pd.DataFrame,
     params: dict[str, Any],
     n_cross_validations: int,
 ) -> tuple[dict, xgboost.sklearn.XGBModel]:
-    mdl = model_fn(**params)
+    match model_name:
+        case "xgboost":
+            mdl = xgboost.sklearn.XGBRegressor(**params)
+        case "lasso":
+            mdl = sklearn.linear_model.Lasso(**params)
+        case _:
+            raise Exception(f"{model_name} is not supported")
+
     scores = cross_validate(
         mdl,
         X_data,
@@ -373,7 +359,7 @@ class ExperimentContext:
     n_cross_validation_splits: int
     number_episodes_random_simulation: int
     max_steps_random_simulation: int
-    max_number_xgboost_runs: int
+    max_number_model_runs: int
     model_search: dict[
         str, dict[str, dict[str, list[int | float] | bool | str]]
     ]
@@ -382,8 +368,8 @@ class ExperimentContext:
 
 
 def mlflow_run(
-    model_fn: Any,
     params: dict[str, int | float],
+    model_name: str,
     experiment_id: str,
     start_time: dt,
     train_validation_split: float,
@@ -415,10 +401,11 @@ def mlflow_run(
             experiment_id=experiment_id,
             run_name=run_name,
             description=description,
+            tags={"model_type": model_name},
         ):
             start_time = dt.now()
             model_scores, model_from_random_simulation = train_model(
-                model_fn=model_fn,
+                model_name=model_name,
                 params=params,
                 X_data=X_train,
                 y_data=y_train,
@@ -427,9 +414,15 @@ def mlflow_run(
             end_time = dt.now()
             model_from_random_simulation_train_time = end_time - start_time
 
-            log_model(
-                model_from_random_simulation, artifact_path="xgboost-model"
-            )
+            match model_name:
+                case "xgboost":
+                    mlflow.xgboost.log_model(
+                        model_from_random_simulation, artifact_path="model"
+                    )
+                case "lasso":
+                    mlflow.sklearn.log_model(
+                        model_from_random_simulation, artifact_path="model"
+                    )
             mlflow.log_params(params)
 
             mlflow_train_dataset = mlflow.data.pandas_dataset.from_pandas(
@@ -516,24 +509,28 @@ def mlflow_run(
             }
             mlflow.log_metrics(model_metrics)
             mlflow.log_table(simulated_results, "simulated_results.json")
-            feature_importances = pd.Series(
-                model_from_random_simulation.feature_importances_,
-                index=X_train.columns,
-            ).sort_values(ascending=True)
-            feature_importances_plot = feature_importances.plot(
-                kind="barh",
-                title="Feature Importances",
-                xlabel="Importance",
-                ylabel="Feature",
-                figsize=(10, 20),
-            )
-            feature_importances_plot_figure = (
-                feature_importances_plot.get_figure()
-            )
-            mlflow.log_figure(
-                feature_importances_plot_figure, "feature_importances.png"
-            )
-            plt.close()
+
+            match model_name:
+                case "xgboost":
+                    feature_importances = pd.Series(
+                        model_from_random_simulation.feature_importances_,
+                        index=X_train.columns,
+                    ).sort_values(ascending=True)
+                    feature_importances_plot = feature_importances.plot(
+                        kind="barh",
+                        title="Feature Importances",
+                        xlabel="Importance",
+                        ylabel="Feature",
+                        figsize=(10, 20),
+                    )
+                    feature_importances_plot_figure = (
+                        feature_importances_plot.get_figure()
+                    )
+                    mlflow.log_figure(
+                        feature_importances_plot_figure,
+                        "feature_importances.png",
+                    )
+                    plt.close()
 
         return simulated_results
 
@@ -541,7 +538,7 @@ def mlflow_run(
 def run_experiment(context: ExperimentContext) -> None:
     logger.info("Running experiment")
     logger.info("Simulating game with random inputs")
-    os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlruns.db"
+    os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
     os.environ["MLFLOW_LOG_LEVEL"] = "ERROR"
 
     mlflow.autolog(disable=True)
@@ -561,24 +558,15 @@ def run_experiment(context: ExperimentContext) -> None:
         else:
             experiment_id = experiment.experiment_id
 
+    all_simulated_results = pd.DataFrame()
     for model_key, params in context.model_search.items():
-        match model_key:
-            case "xgboost":
-                model_fn = xgboost.sklearn.XGBRegressor
-            case "lasso":
-                model_fn = sklearn.linear_model.Lasso
-            case _:
-                raise Exception(f"{model_key} is not in search config")
-
         runs_start_time = dt.now()
         sampled_params = [
-            sample_params(params)
-            for _ in range(context.max_number_xgboost_runs)
+            sample_params(params) for _ in range(context.max_number_model_runs)
         ]
         mlflow_run_wrapper = partial(
             mlflow_run,
-            model_fn=model_fn,
-            params=params["parameter_search"],
+            model_name=model_key,
             experiment_id=experiment_id,
             start_time=runs_start_time,
             train_validation_split=context.train_validation_split,
@@ -596,7 +584,8 @@ def run_experiment(context: ExperimentContext) -> None:
                         mlflow_run_wrapper,
                         sampled_params,
                     ),
-                    desc="Hyperparameter Search with Random Model Data",
+                    desc="Hyperparameter Search with Random Model "
+                    f"Data for {model_key} model",
                     leave=True,
                     total=len(sampled_params),
                 ),
@@ -605,31 +594,33 @@ def run_experiment(context: ExperimentContext) -> None:
             simulated_results_dfs, ignore_index=True
         )
 
-    runs_start_time = dt.now()
-    sampled_params = [
-        sample_xgboost_parameters(context.xgboost_parameter_search)
-        for _ in range(context.max_number_xgboost_runs)
-    ]
-    mlflow_run_wrapper = partial(
-        mlflow_run,
-        experiment_id=experiment_id,
-        start_time=runs_start_time,
-        train_validation_split=context.train_validation_split,
-        n_cross_validation_splits=context.n_cross_validation_splits,
-        data=all_simulated_results,
-        max_test_simulation_episodes=context.max_test_simulation_episodes,
-        max_n_test_simulation_steps=context.max_n_test_simulation_steps,
-        description="Model Simulation Data",
-    )
-    with mp.Pool(N_CORES) as pool:
-        simulated_results_dfs = list(
-            tqdm(
-                pool.imap_unordered(
-                    mlflow_run_wrapper,
-                    sampled_params,
-                ),
-                desc="Hyperparameter Search with Model Simulation",
-                leave=True,
-                total=len(sampled_params),
-            ),
+    for model_key, params in context.model_search.items():
+        runs_start_time = dt.now()
+        sampled_params = [
+            sample_params(params) for _ in range(context.max_number_model_runs)
+        ]
+        mlflow_run_wrapper = partial(
+            mlflow_run,
+            model_name=model_key,
+            experiment_id=experiment_id,
+            start_time=runs_start_time,
+            train_validation_split=context.train_validation_split,
+            n_cross_validation_splits=context.n_cross_validation_splits,
+            data=all_simulated_results,
+            max_test_simulation_episodes=context.max_test_simulation_episodes,
+            max_n_test_simulation_steps=context.max_n_test_simulation_steps,
+            description="Model Simulation Data",
         )
+        with mp.Pool(N_CORES) as pool:
+            simulated_results_dfs = list(
+                tqdm(
+                    pool.imap_unordered(
+                        mlflow_run_wrapper,
+                        sampled_params,
+                    ),
+                    desc="Hyperparameter Search with Model Simulation "
+                    f"for {model_key} model",
+                    leave=True,
+                    total=len(sampled_params),
+                ),
+            )

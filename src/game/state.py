@@ -3,9 +3,11 @@ from src.game.screen import Screen
 from src.actors import Snake, Food
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import xgboost
-from mlflow.xgboost import load_model
+import mlflow.sklearn
+import mlflow.xgboost
+import os
 
 
 @dataclass(kw_only=True)
@@ -17,6 +19,9 @@ class GameState:
     last_input_direction: Direction = Direction.RIGHT
     current_ai_snake: int = 0
     ai_model: xgboost.sklearn.XGBRegressor = xgboost.sklearn.XGBRegressor()
+    ai_model_inference_times: list[float] = field(
+        default_factory=lambda: [0.0]
+    )
 
     @property
     def filled_positions(self) -> list[tuple[int, int]]:
@@ -76,7 +81,18 @@ class GameState:
         return _board_state, _state
 
     def load_ai_model(self) -> None:
-        self.ai_model = load_model(self.ai_model_mlflow_path_or_uri)
+        os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
+        try:
+            self.ai_model = mlflow.xgboost.load_model(
+                self.ai_model_mlflow_path_or_uri
+            )
+        except:
+            try:
+                self.ai_model = mlflow.sklearn.load_model(
+                    self.ai_model_mlflow_path_or_uri
+                )
+            except Exception as e:
+                raise e
 
     def distance_to_food(self, _snake: Snake) -> float:
         return abs(self.food.position[0] - _snake.body[0][0]) + abs(

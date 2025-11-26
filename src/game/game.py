@@ -4,12 +4,13 @@ from src.game.state import GameState
 from src.game.screen import Screen
 from src.config.enums import Colour, Direction, StateMember
 from src.config.datamodels import RewardContext
-from src.ai.data import INPUT_ROW_COLUMNS, create_input_row
+from src.ai.data import create_input_row
 
 import random
 from typing import Any
 import numpy as np
 import pandas as pd
+from datetime import datetime as dt
 
 
 class Game:
@@ -89,12 +90,13 @@ class Game:
             food=food,
             ai_model_mlflow_path_or_uri=ai_mlflow_model_path_or_uri,
         )
-        if not is_ai_random:
-            self.state.load_ai_model()
-        if self.is_two_ai_playing:
-            self.state.current_ai_snake = 0
-        else:
-            self.state.current_ai_snake = 1
+        if is_ai_enabled:
+            if not is_ai_random:
+                self.state.load_ai_model()
+            if self.is_two_ai_playing:
+                self.state.current_ai_snake = 0
+            else:
+                self.state.current_ai_snake = 1
 
         # init
         pygame.init()
@@ -133,12 +135,11 @@ class Game:
 
     def model_ai_move(self) -> Direction:
         if self.state.ai_model is not None:
+            start_time = dt.now()
             state = self.training_ai_get_current_snake_state()
             input_rows = []
             for direction in list(Direction):
-                input_row = create_input_row(
-                    1, state, 0, direction, INPUT_ROW_COLUMNS
-                )
+                input_row = create_input_row(1, state, 0, direction)
                 input_rows.append(input_row)
             input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
             allowed_moves = self.check_allowed_moves(
@@ -154,6 +155,11 @@ class Game:
                 for direction in directions
                 if direction in allowed_moves
             ]
+            inference_time = (dt.now() - start_time).total_seconds()
+            self.state.ai_model_inference_times.append(inference_time)
+            self.state.ai_model_inference_times = (
+                self.state.ai_model_inference_times[1:]
+            )
             if len(direction) > 0:
                 return direction[0]
             else:
@@ -195,8 +201,8 @@ class Game:
             )
 
             if _snake.is_ai:
-                _snake.change_direction(self.ai_move())
                 if self.is_ai_enabled:
+                    _snake.change_direction(self.ai_move())
                     _snake.move()
                     if self.is_two_ai_playing:
                         self.state.increment_current_ai_index()
@@ -254,55 +260,14 @@ class Game:
         return True
 
     def draw_debug(self, rewardContexts: list[RewardContext]) -> None:
-        _board_state, _ = self.state.board_state
         start_pos_x = self.state.screen.debug_start_x
-
-        # draw title
-        start_pos_y = 0
-        self.state.screen.draw_text("State", start_pos_x, start_pos_y)
-
-        # draw state
-        start_pos_y += self.state.screen.block_size
-        for _pos, _statemember in _board_state.items():
-            match _statemember:
-                case StateMember.SNAKE0:
-                    colour = Colour.GREEN.value
-                case StateMember.SNAKE1:
-                    colour = Colour.BLUE.value
-                case StateMember.FOOD:
-                    colour = Colour.RED.value
-                case StateMember.EDGE:
-                    colour = Colour.YELLOW.value
-                case StateMember.SNAKE0_HEAD:
-                    colour = Colour.PURPLE.value
-                case StateMember.SNAKE1_HEAD:
-                    colour = Colour.PURPLE.value
-                case _:
-                    colour = Colour.GREY.value
-
-            pygame.draw.rect(
-                self.state.screen.surface,
-                colour,
-                (
-                    _pos[0] * self.state.screen.block_size + start_pos_x,
-                    _pos[1] * self.state.screen.block_size + start_pos_y,
-                    self.state.screen.block_size,
-                    self.state.screen.block_size,
-                ),
-            )
-
-        # draw title
-        start_pos_y += self.state.screen.block_size * (
-            self.state.screen.n_rows + 2
-        )
 
         # draw ai snake state
         current_ai_snake = self.state.current_ai_snake
+        start_pos_x = self.state.screen.debug_start_x
+        start_pos_y = 0
         for current_snake_index in range(2):
-            start_pos_x = (
-                self.state.screen.debug_start_x
-            ) * current_snake_index
-            start_pos_y = self.state.screen.debug_start_y
+            start_pos_x = self.state.screen.debug_start_x
             self.state.screen.draw_text(
                 f"Snake State {current_snake_index}", start_pos_x, start_pos_y
             )
@@ -338,7 +303,7 @@ class Game:
             # draw rewards
             for i in range(2):
                 start_pos_x = 0
-                start_pos_y = (
+                start_pos_y_reward = (
                     self.state.screen.block_size * self.state.screen.n_rows
                     + i * self.state.screen.block_size
                     + self.state.screen.edge_size
@@ -347,7 +312,11 @@ class Game:
                 )
                 reward = self.calculate_ai_reward(rewardContexts[i])
                 text = f"Snake {i} Reward: {reward:.3f}"
-                self.state.screen.draw_text(text, start_pos_x, start_pos_y)
+                self.state.screen.draw_text(
+                    text, start_pos_x, start_pos_y_reward
+                )
+
+            start_pos_y += self.state.screen.block_size * 3
 
         self.state.current_ai_snake = current_ai_snake
 

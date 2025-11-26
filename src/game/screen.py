@@ -35,11 +35,11 @@ class Screen:
         self.border_colour = border_colour
 
         debug_margin = block_size * 4
-        debug_height = self.board_height + debug_margin
+        debug_height = block_size * 4
         debug_width = self.board_width + debug_margin
         debug_separation = debug_margin
         self.debug_start_x = self.board_width + debug_separation
-        self.debug_start_y = self.board_height + debug_separation
+        self.debug_start_y = self.board_height
 
         flags = 0
         if not is_draw_enabled:
