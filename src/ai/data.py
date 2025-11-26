@@ -39,12 +39,17 @@ def create_input_row(
     reward: float,
     direction: Direction,
     column_names: list[str],
-) -> dict[str | int, int | float]:
-    row: dict[str | int, int | float] = {k: 0 for k in column_names}
+) -> dict[str, int | float]:
+    row: dict[str, int | float] = {k: 0 for k in column_names}
 
     row = {k: 0 for k in column_names}
-    for i in range(len(state) - 5):
-        row[i] = state[i]
+
+    row["normalised_distance_to_wall_x"] = state[0]
+    row["normalised_distance_to_wall_y"] = state[1]
+    row["normalised_fruit_position_x_delta"] = state[2]
+    row["normalised_fruit_position_y_delta"] = state[3]
+    row["closest_segment_x_delta"] = state[4]
+    row["closest_segment_y_delta"] = state[5]
 
     for direction_member in list(Direction):
         for statemember in list(StateMember):
