@@ -46,9 +46,8 @@ def no_ai() -> None:
 
 @__run_app.command()
 def only_ai(ai_model_mlflow_run_id: str) -> None:
-    ai_model_mlflow_run_path = f"runs:/{ai_model_mlflow_run_id}/xgboost-model"
     custom(
-        ai_mlflow_model_path_or_uri=ai_model_mlflow_run_path,
+        ai_mlflow_model_path_or_uri=ai_model_mlflow_run_id,
         framerate=15,
         is_draw_enabled=True,
         is_ai_random=False,

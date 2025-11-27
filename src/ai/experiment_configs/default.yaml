@@ -12,7 +12,7 @@ n_cross_validation_splits: 5
 model_parameter_searches:
   xgboost:
     max_depth:
-      range: [2, 12]
+      range: [3, 10]
       is_log: false
       type: int
     min_child_weight:

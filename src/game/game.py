@@ -139,7 +139,9 @@ class Game:
             state = self.training_ai_get_current_snake_state()
             input_rows = []
             for direction in list(Direction):
-                input_row = create_input_row(1, state, 0, direction)
+                input_row = create_input_row(
+                    self.state.current_ai_snake, state, 0, direction
+                )
                 input_rows.append(input_row)
             input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
             allowed_moves = self.check_allowed_moves(

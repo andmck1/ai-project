@@ -1,0 +1,29 @@
+experiment_name: snake-random-forest-only
+
+number_episodes_random_simulation: 2000
+max_steps_random_simulation: 50
+max_number_model_runs: 50
+max_test_simulation_episodes: 10
+max_n_test_simulation_steps: 1000
+
+train_validation_split: 0.2
+n_cross_validation_splits: 5
+
+model_parameter_searches:
+  random_forest:
+    max_depth:
+      range: [2, 25]
+      is_log: false
+      type: int
+    n_estimators:
+      range: [100, 2000]
+      is_log: false
+      type: int
+    min_samples_split:
+      range: [2, 10]
+      is_log: false
+      type: int
+    min_samples_leaf:
+      range: [1, 10]
+      is_log: false
+      type: int

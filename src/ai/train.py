@@ -40,7 +40,7 @@ import mlflow
 import mlflow.xgboost
 import mlflow.data.pandas_dataset
 
-N_CORES = 6
+N_CORES = 4
 
 logger = create_logger(__name__)
 logging.getLogger("mlflow").setLevel(logging.ERROR)
@@ -88,7 +88,7 @@ def simulate_game_run(
                 start_inference_time = dt.now()
                 for direction in list(Direction):
                     input_row = create_input_row(
-                        snake_idx, state, 0, direction
+                        game.state.current_ai_snake, state, 0, direction
                     )
                     input_rows.append(input_row)
                 input_rows = pd.DataFrame(input_rows).drop("reward", axis=1)
@@ -259,6 +259,8 @@ def train_model(
             mdl = xgboost.sklearn.XGBRegressor(**params)
         case "lasso":
             mdl = sklearn.linear_model.Lasso(**params)
+        case "random_forest":
+            mdl = sklearn.ensemble.RandomForestRegressor(**params, n_jobs=-1)
         case _:
             raise Exception(f"{model_name} is not supported")
 
@@ -282,12 +284,15 @@ def evaluate_model(
     metrics = {
         "R2_avg": round(scores["test_r2_score"].mean(), 3),
         "R2_std": round(scores["test_r2_score"].std(), 3),
+        "R2_valid": round(r2_score(y_true, predictions), 3),
         "RMSE_avg": round(
             np.sqrt(scores["test_mean_squared_error"]).mean(), 3
         ),
         "RMSE_std": round(np.sqrt(scores["test_mean_squared_error"]).std(), 3),
+        "RMSE_valid": round(mean_squared_error(y_true, predictions) ** 0.5, 3),
         "MAE_avg": round(scores["test_mean_absolute_error"].mean(), 3),
         "MAE_std": round(scores["test_mean_absolute_error"].std(), 3),
+        "MAE_valid": round(mean_absolute_error(y_true, predictions), 3),
     }
     plt = (y_true - predictions).plot(
         kind="hist",
@@ -404,7 +409,7 @@ def mlflow_run(
             tags={"model_type": model_name},
         ):
             start_time = dt.now()
-            model_scores, model_from_random_simulation = train_model(
+            model_scores, trained_model = train_model(
                 model_name=model_name,
                 params=params,
                 X_data=X_train,
@@ -417,11 +422,11 @@ def mlflow_run(
             match model_name:
                 case "xgboost":
                     mlflow.xgboost.log_model(
-                        model_from_random_simulation, artifact_path="model"
+                        trained_model, artifact_path="model"
                     )
-                case "lasso":
+                case _:
                     mlflow.sklearn.log_model(
-                        model_from_random_simulation, artifact_path="model"
+                        trained_model, artifact_path="model"
                     )
             mlflow.log_params(params)
 
@@ -437,7 +442,7 @@ def mlflow_run(
                 tags_list=[None, None],
             )
 
-            predictions = model_from_random_simulation.predict(X_test)
+            predictions = trained_model.predict(X_test)
             model_metrics, model_residuals_hist = evaluate_model(
                 model_scores, y_test.iloc[:, 0], predictions
             )
@@ -457,7 +462,7 @@ def mlflow_run(
                 max_snake_lengths_per_run,
                 model_inference_times,
             ) = simulate_game_with_model_inputs(
-                model_from_random_simulation,
+                trained_model,
                 random_move_rate,
                 max_steps=max_n_test_simulation_steps,
                 num_episodes=max_test_simulation_episodes,
@@ -513,7 +518,7 @@ def mlflow_run(
             match model_name:
                 case "xgboost":
                     feature_importances = pd.Series(
-                        model_from_random_simulation.feature_importances_,
+                        trained_model.feature_importances_,
                         index=X_train.columns,
                     ).sort_values(ascending=True)
                     feature_importances_plot = feature_importances.plot(
@@ -594,33 +599,34 @@ def run_experiment(context: ExperimentContext) -> None:
             simulated_results_dfs, ignore_index=True
         )
 
-    for model_key, params in context.model_search.items():
-        runs_start_time = dt.now()
-        sampled_params = [
-            sample_params(params) for _ in range(context.max_number_model_runs)
-        ]
-        mlflow_run_wrapper = partial(
-            mlflow_run,
-            model_name=model_key,
-            experiment_id=experiment_id,
-            start_time=runs_start_time,
-            train_validation_split=context.train_validation_split,
-            n_cross_validation_splits=context.n_cross_validation_splits,
-            data=all_simulated_results,
-            max_test_simulation_episodes=context.max_test_simulation_episodes,
-            max_n_test_simulation_steps=context.max_n_test_simulation_steps,
-            description="Model Simulation Data",
-        )
-        with mp.Pool(N_CORES) as pool:
-            simulated_results_dfs = list(
-                tqdm(
-                    pool.imap_unordered(
-                        mlflow_run_wrapper,
-                        sampled_params,
-                    ),
-                    desc="Hyperparameter Search with Model Simulation "
-                    f"for {model_key} model",
-                    leave=True,
-                    total=len(sampled_params),
-                ),
-            )
+    # TODO - bug in simulation code for this, needs fixed
+    # for model_key, params in context.model_search.items():
+    #     runs_start_time = dt.now()
+    #     sampled_params = [
+    #         sample_params(params) for _ in range(context.max_number_model_runs)
+    #     ]
+    #     mlflow_run_wrapper = partial(
+    #         mlflow_run,
+    #         model_name=model_key,
+    #         experiment_id=experiment_id,
+    #         start_time=runs_start_time,
+    #         train_validation_split=context.train_validation_split,
+    #         n_cross_validation_splits=context.n_cross_validation_splits,
+    #         data=all_simulated_results,
+    #         max_test_simulation_episodes=context.max_test_simulation_episodes,
+    #         max_n_test_simulation_steps=context.max_n_test_simulation_steps,
+    #         description="Model Simulation Data",
+    #     )
+    #     with mp.Pool(N_CORES) as pool:
+    #         simulated_results_dfs = list(
+    #             tqdm(
+    #                 pool.imap_unordered(
+    #                     mlflow_run_wrapper,
+    #                     sampled_params,
+    #                 ),
+    #                 desc="Hyperparameter Search with Model Simulation "
+    #                 f"for {model_key} model",
+    #                 leave=True,
+    #                 total=len(sampled_params),
+    #             ),
+    #         )
