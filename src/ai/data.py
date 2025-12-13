@@ -52,6 +52,10 @@ def init_data() -> pd.DataFrame:
 def create_state_member_text(
     current_snake_index: int, statemember: StateMember
 ) -> str | None:
+    """
+    Want to encode current snake's body and other snake's body and head
+    using state information that uses absolute snake references
+    """
     if current_snake_index == 0:
         if statemember == StateMember.SNAKE0:
             statemember_text = "MY_BODY"
@@ -86,6 +90,10 @@ def create_input_row(
     reward: float,
     direction: Direction,
 ) -> dict[str, int | float]:
+    """
+    Core function for creating input row to model. Used for training and
+    inference.
+    """
     row: dict[str, int | float] = {k: 0 for k in INPUT_ROW_COLUMNS}
     row["normalised_distance_to_wall_x"] = state[0]
     row["normalised_distance_to_wall_y"] = state[1]

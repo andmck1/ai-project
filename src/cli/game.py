@@ -18,20 +18,25 @@ def custom(
     ai_mlflow_model_path_or_uri: str = "",
     is_two_ai_playing: bool = False,
 ) -> None:
-    screen = Screen(is_draw_enabled=is_draw_enabled)
-    game = Game(
-        screen,
-        "MAT501 - Coursework",
-        is_draw_enabled=is_draw_enabled,
-        framerate=framerate,
-        ai_mlflow_model_path_or_uri=ai_mlflow_model_path_or_uri,
-        is_ai_random=is_ai_random,
-        is_ai_enabled=is_ai_enabled,
-        is_debug_enabled=is_debug_enabled,
-        is_two_ai_playing=is_two_ai_playing,
-    )
-    while game.frame():
-        pass
+    while True:
+        screen = Screen(is_draw_enabled=is_draw_enabled)
+        game = Game(
+            screen,
+            "MAT501 - Coursework",
+            is_draw_enabled=is_draw_enabled,
+            framerate=framerate,
+            ai_mlflow_model_path_or_uri=ai_mlflow_model_path_or_uri,
+            is_ai_random=is_ai_random,
+            is_ai_enabled=is_ai_enabled,
+            is_debug_enabled=is_debug_enabled,
+            is_two_ai_playing=is_two_ai_playing,
+        )
+        while game.frame():
+            if game.is_escape_pressed:
+                break
+            pass
+        if game.is_escape_pressed:
+            break
 
 
 @__run_app.command()

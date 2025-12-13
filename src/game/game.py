@@ -33,6 +33,7 @@ class Game:
         is_ai_random: bool = True,
         is_debug_enabled: bool = True,
         is_ai_enabled: bool = True,
+        is_escape_pressed: bool = False,
     ) -> None:
         # properties
         self.is_two_ai_playing = is_two_ai_playing
@@ -42,6 +43,7 @@ class Game:
         self.is_debug_enabled = is_debug_enabled
         self.is_ai_enabled = is_ai_enabled
         self.clock = pygame.time.Clock()
+        self.is_escape_pressed = False
 
         # state
         snakes = []
@@ -110,10 +112,12 @@ class Game:
         # Hardcode for single player
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                self.is_escape_pressed = True
                 self.quit()
                 return False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    self.is_escape_pressed = True
                     self.quit()
                     return False
                 if event.key == pygame.K_UP:
@@ -128,12 +132,21 @@ class Game:
         return True
 
     def random_ai_move(self) -> Direction:
+        """
+        Choose a random move from list of all directions
+        """
         random_direction: Direction = list(Direction)[
             random.randint(0, len(Direction) - 1)
         ]
         return random_direction
 
     def model_ai_move(self) -> Direction:
+        """
+        Get move for the AI by getting the current state for model input,
+        creating a list of rows for each input direction, running inference
+        and filtering for moves that would guarantee a loss (eg. going into
+        a wall or another snake).
+        """
         if self.state.ai_model is not None:
             start_time = dt.now()
             state = self.training_ai_get_current_snake_state()
@@ -178,6 +191,9 @@ class Game:
             return self.model_ai_move()
 
     def frame(self) -> bool:
+        """
+        Core game loop logic.
+        """
         # TODO - could be more efficient to collect the rectangles
         # and display using .update() for draw calls
 
@@ -186,7 +202,9 @@ class Game:
 
         rewardContexts = []
 
+        # loop over all snakes
         for _snake in self.state.snakes:
+            # collect state
             is_food_eaten = False
             is_game_over = False
             previous_direction = _snake.current_direction
@@ -202,6 +220,8 @@ class Game:
                 )
             )
 
+            # if snake is AI controlled then move snake with AI generated move
+            # otherwise take input from player
             if _snake.is_ai:
                 if self.is_ai_enabled:
                     _snake.change_direction(self.ai_move())
@@ -212,6 +232,7 @@ class Game:
                 _snake.change_direction(self.state.last_input_direction)
                 _snake.move()
 
+            # update new state based on previous move
             new_distance_to_food = self.state.distance_to_food(_snake)
             new_distance_to_wall = self.state.distance_to_wall(_snake)
             new_distance_to_other_snake = (
@@ -220,16 +241,19 @@ class Game:
                 )
             )
 
+            # check if food eaten
             if _snake.body[0] == self.state.food.position:
                 is_food_eaten = True
                 _snake.eaten_fruit = True
                 self.state.food.move(self.state.free_positions)
 
+            # check if collision
             if _snake.check_collision(self.state.filled_positions):
                 is_game_over = True
                 print(_snake.name + " lost")
                 self.quit()
 
+            # create reward (used for training and tracking state)
             rewardContext = RewardContext(
                 previous_direction=previous_direction,
                 new_direction=self.state.last_input_direction,
@@ -244,9 +268,11 @@ class Game:
             )
             rewardContexts.append(rewardContext)
 
+            # exit event if game over
             if is_game_over:
                 return False
 
+        # draw screen
         if self.is_draw_enabled:
             self.state.screen.surface.fill(Colour.BLACK.value)
             self.state.screen.draw_border()
@@ -257,11 +283,15 @@ class Game:
                 self.draw_debug(rewardContexts)
             pygame.display.flip()
 
+        # move time
         self.clock.tick(self.framerate)
 
         return True
 
     def draw_debug(self, rewardContexts: list[RewardContext]) -> None:
+        """
+        Draws debug information onto game screen.
+        """
         start_pos_x = self.state.screen.debug_start_x
 
         # draw ai snake state
@@ -335,11 +365,16 @@ class Game:
         self.clock.tick(self.framerate)
 
     def training_ai_get_current_snake_state(self) -> list[Any]:
+        """
+        Generate state for AI snake. Used primarily for training but also 
+        useful for inference, where input state is required to create input 
+        rows for model.
+        """
         state = []
         _snake = self.state.snakes[self.state.current_ai_snake]
         _other_snake = self.state.snakes[(self.state.current_ai_snake + 1) % 2]
         _board_state, _ = self.state.board_state
-
+        
         _distances_from_head_to_other_snake = (
             self.state.distances_from_head_to_other_snake(_snake, _other_snake)
         )
@@ -403,6 +438,10 @@ class Game:
         return state
 
     def check_allowed_moves(self, snake: Snake) -> list[Direction]:
+        """
+        Checks for any game ending moves. If a given direction isn't empty
+        and isn't food then it should not be used.
+        """
         current_board_state, _ = self.state.board_state
         allowed_directions = []
         for direction in list(Direction):
@@ -418,11 +457,18 @@ class Game:
     def training_ai_step(
         self, input_direction: Direction
     ) -> tuple[list[int] | None, float, bool] | None | int:
+        """
+        Specific code for training the AI by having the AI play against itself
+        by controlling both snakes.
+        """
+
+        # init
         reward = 0.0
         next_state = []
         is_game_over = False
         is_food_eaten = False
-
+        
+        # get or generate relevant state
         _snake = self.state.snakes[self.state.current_ai_snake]
         allowed_directions = self.check_allowed_moves(_snake)
         if input_direction not in allowed_directions:
@@ -436,25 +482,30 @@ class Game:
         previous_distance_to_other_snake = (
             self.state.distance_to_closest_snake_segment(_snake, _other_snake)
         )
-
+        
+        # move snake
         _snake.change_direction(input_direction)
         _snake.move()
-
+        
+        # get updated state
         new_distance_to_food = self.state.distance_to_food(_snake)
         new_distance_to_wall = self.state.distance_to_wall(_snake)
         new_distance_to_other_snake = (
             self.state.distance_to_closest_snake_segment(_snake, _other_snake)
         )
-
+        
+        # check for food eaten
         if _snake.body[0] == self.state.food.position:
             is_food_eaten = True
             _snake.eaten_fruit = True
             self.state.food.move(self.state.free_positions)
-
+        
+        # check for game over state
         if _snake.check_collision(self.state.filled_positions):
             is_game_over = True
             self.quit()
-
+        
+        # get reward update
         rewardContext = RewardContext(
             previous_direction=previous_direction,
             new_direction=input_direction,
@@ -470,12 +521,28 @@ class Game:
         reward = self.calculate_ai_reward(rewardContext)
         if is_game_over:
             return None, reward, True
-
+        
+        # update state and increment AI counter
         next_state = self.training_ai_get_current_snake_state()
         self.state.increment_current_ai_index()
         return next_state, reward, is_game_over
 
     def calculate_ai_reward(self, rewardContext: RewardContext) -> float:
+        """
+        This is the core function for calculating reward.
+
+        If it was game over or next to wall or head of other snake
+        then return max negative reward.
+
+        If food just eaten return maximum reward.
+
+        If direction provided tried to move the snake backward, return maximum
+        negative reward.
+
+        Otherwise, calculate reward as a function of distance to food
+        and distance to wall, where moving toward food increases reward
+        and moving away reduces reward.
+        """
         reward = 0.0
         if rewardContext.is_game_over:
             return -1.0

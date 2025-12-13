@@ -25,6 +25,9 @@ class GameState:
 
     @property
     def filled_positions(self) -> list[tuple[int, int]]:
+        """
+        Get all positions on board that snakes occupy.
+        """
         filled_positions = [
             _pos for _snake in self.snakes for _pos in _snake.body
         ]
@@ -32,6 +35,9 @@ class GameState:
 
     @property
     def free_positions(self) -> list[tuple[int, int]]:
+        """
+        Get all positions on board that snakes do not occupy.
+        """
         free_positions = [
             _pos
             for _pos in self.screen.all_positions
@@ -43,6 +49,10 @@ class GameState:
     def board_state(
         self,
     ) -> tuple[dict[tuple[int, int], StateMember], list[StateMember]]:
+        """
+        Create board state as a dictionary of position->State and list of
+        states ordered by row then column
+        """
         _board_state = {
             (i, j): StateMember.EMPTY
             if (
@@ -81,6 +91,9 @@ class GameState:
         return _board_state, _state
 
     def load_ai_model(self) -> None:
+        """
+        Load AI model using MLflow API. Path can be a URI to file.
+        """
         os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
         try:
             self.ai_model = mlflow.xgboost.load_model(
@@ -95,14 +108,24 @@ class GameState:
                 raise e
 
     def distance_to_food(self, _snake: Snake) -> float:
+        """
+        Calculate Manhattan distance to food.
+        """
         return abs(self.food.position[0] - _snake.body[0][0]) + abs(
             self.food.position[1] - _snake.body[0][1]
         )
 
     def distance_to_centre(self, _snake: Snake) -> float:
+        """
+        Calculate distance to centre of board 
+        (hard coded to board size 10 currently)
+        """
         return abs(10 - _snake.body[0][0]) + abs(10 - _snake.body[0][1])
 
     def distance_to_wall(self, _snake: Snake) -> float:
+        """
+        Calculate distance to wall with a given snake
+        """
         snake_x, snake_y = _snake.body[0]
         distance_x = min(snake_x + 1, self.screen.n_cols - snake_x)
         distance_y = min(snake_y + 1, self.screen.n_rows - snake_y)
@@ -112,6 +135,10 @@ class GameState:
     def distances_from_head_to_other_snake(
         self, _snake: Snake, _other_snake: Snake
     ) -> list[tuple[int, int]]:
+        """
+        Calculate x and y distances from head to all
+        other snake segments
+        """
         _deltas_of_head_to_other_snake = [
             (
                 _other_snake_segment_pos[0] - _snake.body[0][0],
@@ -124,6 +151,10 @@ class GameState:
     def closest_other_snake_segment(
         self, distances_from_head_to_other_snake: list[tuple[int, int]]
     ) -> int:
+        """
+        Calculate index of closest snake segment given a list
+        of x,y deltas using manhattan distance
+        """
         _manhattan_distances_to_other_snake_segments = [
             abs(_delta[0]) + abs(_delta[1])
             for _delta in distances_from_head_to_other_snake
@@ -136,6 +167,10 @@ class GameState:
     def distance_to_closest_snake_segment(
         self, _snake: Snake, _other_snake: Snake
     ) -> int:
+        """
+        Calculate manhattan distance of current snake head to closest
+        other snake segment
+        """
         _distances_of_head_to_other_snake = (
             self.distances_from_head_to_other_snake(_snake, _other_snake)
         )

@@ -53,12 +53,19 @@ def simulate_game_run(
     mdl: xgboost.sklearn.XGBModel | None = None,
     random_move_rate: float | None = None,
 ) -> tuple[pd.DataFrame, int, tuple[int, int], list[float | None]]:
+    """
+    Function designed to run as dispatch from multiprocessor.
+
+    Simulates game run using given model settings at max frame speed.
+    """
+    # init
     data = init_data()
     inference_times: list[float | None] = []
 
     game_over = False
     frame_step = 0
-
+    
+    # create game with uncapped frame speed
     is_draw_enabled = False
     framerate = 0
     screen = Screen(is_draw_enabled=is_draw_enabled)
@@ -68,11 +75,15 @@ def simulate_game_run(
         is_draw_enabled=is_draw_enabled,
         framerate=framerate,
     )
-
+    
+    # run up to max number of steps
     for frame_step in range(max_steps):
+        # for each snake
         for snake_idx in range(2):
+            # get current state
             state = game.training_ai_get_current_snake_state()
-
+            
+            # get AI move
             direction = None
             result = None
             if is_ai_random:
@@ -108,12 +119,14 @@ def simulate_game_run(
                     random.shuffle(directions)
 
                 inference_times.append(inference_time)
-
+            
+            # step game forward, checking for end moves
             for direction in directions:
                 result = game.training_ai_step(direction)
                 if result != -1:
                     break
-
+            
+            # update data
             if result is None or isinstance(result, int):
                 game_over = True
                 break
@@ -152,11 +165,18 @@ def simulate_game_with_random_inputs(
 ) -> tuple[
     pd.DataFrame, list[int], tuple[list[int], list[int]], list[float | None]
 ]:
+    """
+    Generate game data using random inputs to explore state space.
+
+    Runs across multiple cores.
+    """
+    # init
     simulated_data_dfs = []
     all_n_frame_steps = []
     all_snake_lengths = []
     all_inference_times = []
-
+    
+    # run game
     simulate_game_run_wrapper_partial = partial(
         simulate_game_run, max_steps=max_steps, is_ai_random=True
     )
@@ -172,6 +192,8 @@ def simulate_game_with_random_inputs(
                 ),
             )
         )
+
+    # collect data
     for df, n_frame_steps, snake_lengths, inference_times in results:
         simulated_data_dfs.append(df)
         all_n_frame_steps.append(n_frame_steps)
@@ -203,11 +225,18 @@ def simulate_game_with_model_inputs(
     tuple[list[int], list[int]],
     list[float | None],
 ]:
+    """
+    Collect simulation data using model to create inputs.
+
+    Runs across multiple cores.
+    """
+    # init
     simulated_data_dfs = []
     all_n_frame_steps = []
     all_snake_lengths = []
     all_model_inference_times = []
-
+    
+    # run simulation
     simulate_game_run_wrapper_partial = partial(
         simulate_game_run,
         max_steps=max_steps,
@@ -227,7 +256,8 @@ def simulate_game_with_model_inputs(
         results = list(
             simulate_game_run_wrapper_partial(_) for _ in range(num_episodes)
         )
-
+    
+    # collect data
     for df, n_frame_steps, snake_lengths, inference_times in results:
         simulated_data_dfs.append(df)
         all_n_frame_steps.append(n_frame_steps)
@@ -254,6 +284,9 @@ def train_model(
     params: dict[str, Any],
     n_cross_validations: int,
 ) -> tuple[dict, xgboost.sklearn.XGBModel]:
+    """
+    Run cross validation using YAML config.
+    """
     match model_name:
         case "xgboost":
             mdl = xgboost.sklearn.XGBRegressor(**params)
@@ -281,6 +314,9 @@ def train_model(
 def evaluate_model(
     scores: dict, y_true: pd.Series, predictions: pd.Series
 ) -> tuple[dict[str, float], matplotlib.axes.Axes]:
+    """
+    Create metrics and plots for model evaluation.
+    """
     metrics = {
         "R2_avg": round(scores["test_r2_score"].mean(), 3),
         "R2_std": round(scores["test_r2_score"].std(), 3),
@@ -313,6 +349,9 @@ def generate_run_name(now: dt) -> str:
 def sample_params(
     params: dict[str, dict[str, list[int | float] | bool | str]],
 ) -> dict[str, int | float]:
+    """
+    Sampler logic for random hyperparameter search.
+    """
     sampled_params = dict()
 
     for param_key, param_info in params.items():
@@ -385,6 +424,13 @@ def mlflow_run(
     description: str,
     random_move_rate: float = 0.0,
 ) -> pd.DataFrame:
+    """
+    Single MLflow run.
+
+    Split data for train/validation, train the model using cross validation,
+    simulate game using model and finally collect any metrics and artifacts.
+    """
+    # Train/validation split
     x_cols = [col for col in data.columns if col != "reward"]
     y_col = ["reward"]
     X_train, X_test, y_train, y_test = train_test_split(
@@ -399,7 +445,8 @@ def mlflow_run(
     y_test = pd.DataFrame(y_test)
 
     run_name = generate_run_name(start_time)
-
+    
+    # MLflow warning verbosity workaround
     null = open(os.devnull, "w")
     with redirect_stdout(null), redirect_stderr(null):
         with mlflow.start_run(
@@ -408,6 +455,7 @@ def mlflow_run(
             description=description,
             tags={"model_type": model_name},
         ):
+            # train model
             start_time = dt.now()
             model_scores, trained_model = train_model(
                 model_name=model_name,
@@ -418,7 +466,8 @@ def mlflow_run(
             )
             end_time = dt.now()
             model_from_random_simulation_train_time = end_time - start_time
-
+            
+            # log model
             match model_name:
                 case "xgboost":
                     mlflow.xgboost.log_model(
@@ -429,7 +478,8 @@ def mlflow_run(
                         trained_model, artifact_path="model"
                     )
             mlflow.log_params(params)
-
+            
+            # log datasets
             mlflow_train_dataset = mlflow.data.pandas_dataset.from_pandas(
                 data.iloc[X_train.index, :]
             )
@@ -441,7 +491,8 @@ def mlflow_run(
                 contexts=["train", "test"],
                 tags_list=[None, None],
             )
-
+            
+            # create and log metrics and figures
             predictions = trained_model.predict(X_test)
             model_metrics, model_residuals_hist = evaluate_model(
                 model_scores, y_test.iloc[:, 0], predictions
@@ -455,7 +506,8 @@ def mlflow_run(
                 "model_from_random_simulation_residuals_histogram.png",
             )
             plt.close()
-
+            
+            # simulate game with model
             (
                 simulated_results,
                 total_n_frames_per_run,
@@ -468,6 +520,8 @@ def mlflow_run(
                 num_episodes=max_test_simulation_episodes,
                 is_multiproc=False,
             )
+
+            # collect metrics
             max_snake_lengths_arr = np.array(
                 max_snake_lengths_per_run
             ).reshape(-1)
@@ -514,7 +568,8 @@ def mlflow_run(
             }
             mlflow.log_metrics(model_metrics)
             mlflow.log_table(simulated_results, "simulated_results.json")
-
+            
+            # model specific metrics and figures
             match model_name:
                 case "xgboost":
                     feature_importances = pd.Series(
@@ -541,20 +596,27 @@ def mlflow_run(
 
 
 def run_experiment(context: ExperimentContext) -> None:
+    """
+    Main function for running the whole experiment with a given experiment
+    configuration.
+    """
     logger.info("Running experiment")
     logger.info("Simulating game with random inputs")
     os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
     os.environ["MLFLOW_LOG_LEVEL"] = "ERROR"
-
+    
+    # autologging is too unpredictable
     mlflow.autolog(disable=True)
-
+    
+    # random simulation
     simulated_with_random_inputs_data, _, _, _ = (
         simulate_game_with_random_inputs(
             num_episodes=context.number_episodes_random_simulation,
             max_steps=context.max_steps_random_simulation,
         )
     )
-
+    
+    # mlflow verbosity workaround
     null = open(os.devnull, "w")
     with redirect_stdout(null), redirect_stderr(null):
         experiment = mlflow.get_experiment_by_name(context.experiment_name)
@@ -562,7 +624,9 @@ def run_experiment(context: ExperimentContext) -> None:
             experiment_id = mlflow.create_experiment(context.experiment_name)
         else:
             experiment_id = experiment.experiment_id
-
+    
+    # run experiment for each given model and parameters in hyperparameter
+    # search
     all_simulated_results = pd.DataFrame()
     for model_key, params in context.model_search.items():
         runs_start_time = dt.now()
@@ -598,7 +662,9 @@ def run_experiment(context: ExperimentContext) -> None:
         all_simulated_results = pd.concat(
             simulated_results_dfs, ignore_index=True
         )
-
+    
+    # In theory can run further training using trained models to generate
+    # simulation data but disabled for now.
     # TODO - bug in simulation code for this, needs fixed
     # for model_key, params in context.model_search.items():
     #     runs_start_time = dt.now()
