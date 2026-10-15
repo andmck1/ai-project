@@ -18,8 +18,8 @@ if getattr(sys, "frozen", False):
 else:
     RESOURCES_DIR = Path(__file__).resolve().parent.parent / "resources"
 
-# Render at 2x for a clean downscale
-_RENDER_SIZE = 128
+# Render at high resolution for a clean downscale to the block size
+_RENDER_SIZE = 256
 
 
 def load_sprites(

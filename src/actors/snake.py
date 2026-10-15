@@ -78,7 +78,9 @@ class Snake(PyGameObject):
     def draw(self) -> None:
         body_set = set(self.body)
         for index, segment in enumerate(self.body):
-            sprite = self.screen.sprites.get(self._sprite_name(index, body_set))
+            sprite = self.screen.sprites.get(
+                self._sprite_name(index, body_set)
+            )
             if sprite is None:
                 continue
             self.screen.surface.blit(
@@ -114,20 +116,26 @@ class Snake(PyGameObject):
                 facing = "up"
             return f"{prefix}_tail_{facing}"
 
-        # body: pick the piece matching which neighbours the segment joins
-        joins = set()
-        if (position[0] + 1, position[1]) in body_set:
-            joins.add("right")
-        if (position[0] - 1, position[1]) in body_set:
-            joins.add("left")
-        if (position[0], position[1] + 1) in body_set:
-            joins.add("down")
-        if (position[0], position[1] - 1) in body_set:
-            joins.add("up")
+        # body: pick the piece matching the two segments it actually links
+        def direction_to(other: tuple[int, int]) -> str:
+            dx = other[0] - position[0]
+            dy = other[1] - position[1]
+            if dx == 1:
+                return "right"
+            if dx == -1:
+                return "left"
+            if dy == 1:
+                return "down"
+            return "up"
 
-        if {"left", "right"} <= joins:
+        joins = {
+            direction_to(self.body[index - 1]),
+            direction_to(self.body[index + 1]),
+        }
+
+        if joins == {"left", "right"}:
             return f"{prefix}_body_h"
-        if {"up", "down"} <= joins:
+        if joins == {"up", "down"}:
             return f"{prefix}_body_v"
         corners = {
             frozenset({"up", "right"}): "corner_up_right",

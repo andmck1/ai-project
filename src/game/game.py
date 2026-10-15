@@ -274,7 +274,7 @@ class Game:
 
         # draw screen
         if self.is_draw_enabled:
-            self.state.screen.surface.fill(Colour.BLACK.value)
+            self.state.screen.surface.fill(Colour.DARK_GREY.value)
             self.state.screen.draw_border()
             for _snake in self.state.snakes:
                 _snake.draw()
@@ -354,7 +354,7 @@ class Game:
         self.state.current_ai_snake = current_ai_snake
 
     def training_ai_frame(self) -> None:
-        self.state.screen.surface.fill(Colour.BLACK.value)
+        self.state.screen.surface.fill(Colour.DARK_GREY.value)
 
     def training_ai_end_frame(self) -> None:
         if self.is_draw_enabled:

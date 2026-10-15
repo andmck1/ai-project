@@ -15,18 +15,18 @@ class Screen:
     debug_start_x: int | None
     debug_start_y: int | None
     sprites: dict[str, pygame.surface.Surface]
-    board_width: int = 400
-    board_height: int = 400
+    board_width: int = 800
+    board_height: int = 800
     edge_size: int = 1
-    block_size: int = 20
+    block_size: int = 40
     border_colour: Colour = Colour.YELLOW
     is_debug_enabled: bool = False
 
     def __init__(
         self,
-        board_width: int = 20*20,
-        board_height: int = 20*20,
-        block_size: int = 20,
+        board_width: int = 40*20,
+        board_height: int = 40*20,
+        block_size: int = 40,
         edge_size: int = 1,
         is_draw_enabled: bool = True,
         is_debug_enabled: bool = False,

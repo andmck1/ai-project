@@ -9,6 +9,7 @@ class Colour(Enum):
     BLUE = (0, 0, 255)
     BLACK = (0, 0, 0)
     GREY = (120, 120, 120)
+    DARK_GREY = (45, 45, 45)
     YELLOW = (255, 255, 0)
     PURPLE = (255, 0, 255)
 
