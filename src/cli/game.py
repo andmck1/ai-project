@@ -56,7 +56,7 @@ def no_ai() -> None:
 def only_ai(ai_model_mlflow_run_id: str) -> None:
     custom(
         ai_mlflow_model_path_or_uri=ai_model_mlflow_run_id,
-        framerate=15,
+        framerate=10,
         is_draw_enabled=True,
         is_ai_random=False,
         is_ai_enabled=True,

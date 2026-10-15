@@ -22,7 +22,14 @@ class Snake(PyGameObject):
         body_colour: Colour = Colour.GREEN,
     ) -> None:
         super().__init__(screen)
-        self.body: list[tuple[int, int]] = [start_position]
+        # Start with a length of two, extending backwards from the head
+        self.body: list[tuple[int, int]] = [
+            start_position,
+            (
+                start_position[0] - start_direction.value[0],
+                start_position[1] - start_direction.value[1],
+            ),
+        ]
         self.current_direction = start_direction
         self.eaten_fruit = False
         self.body_colour = body_colour

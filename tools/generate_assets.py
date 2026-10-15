@@ -174,7 +174,7 @@ def main() -> None:
     }
     for joining, deg in CORNER_JOININGS.items():
         files[f"wall_corner_{joining}.svg"] = svg_wrapper(
-            rotate(corner(WALL_COLOUR), deg)
+            rotate(corner(WALL_COLOUR, inner_square=True), deg)
         )
 
     for n, colour in SNAKE_COLOURS.items():
