@@ -12,22 +12,24 @@ class Screen:
     all_positions: list[tuple[int, int]]
     total_width: int
     total_height: int
-    debug_start_x: int
-    debug_start_y: int
+    debug_start_x: int | None
+    debug_start_y: int | None
     sprites: dict[str, pygame.surface.Surface]
     board_width: int = 400
     board_height: int = 400
     edge_size: int = 1
     block_size: int = 20
     border_colour: Colour = Colour.YELLOW
+    is_debug_enabled: bool = False
 
     def __init__(
         self,
-        board_width: int = 16*20,
-        board_height: int = 16*20,
-        block_size: int = 16,
+        board_width: int = 20*20,
+        board_height: int = 20*20,
+        block_size: int = 20,
         edge_size: int = 1,
         is_draw_enabled: bool = True,
+        is_debug_enabled: bool = False,
         border_colour: Colour = Colour.YELLOW,
     ) -> None:
         self.board_width = board_width + block_size * edge_size * 2
@@ -35,13 +37,22 @@ class Screen:
         self.block_size = block_size
         self.edge_size = edge_size
         self.border_colour = border_colour
+        self.is_debug_enabled = is_debug_enabled
 
-        debug_margin = block_size * 4
-        debug_height = block_size * 4
-        debug_width = self.board_width + debug_margin
-        debug_separation = debug_margin
-        self.debug_start_x = self.board_width + debug_separation
-        self.debug_start_y = self.board_height
+        if is_debug_enabled:
+            debug_margin = block_size * 4
+            debug_height = block_size * 4
+            debug_width = self.board_width + debug_margin
+            debug_separation = debug_margin
+            self.debug_start_x = self.board_width + debug_separation
+            self.debug_start_y = self.board_height
+        else:
+            debug_margin = 0
+            debug_height = 0
+            debug_width = 0
+            debug_separation = 0
+            self.debug_start_x = None
+            self.debug_start_y = None
 
         flags = 0
         if not is_draw_enabled:
@@ -98,8 +109,12 @@ class Screen:
 
     @property
     def n_rows(self) -> int:
-        return (self.board_height - self.edge_size * 2) // self.block_size
+        return (
+            self.board_height - self.edge_size * 2 * self.block_size
+        ) // self.block_size
 
     @property
     def n_cols(self) -> int:
-        return (self.board_width - self.edge_size * 2) // self.block_size
+        return (
+            self.board_width - self.edge_size * 2 * self.block_size
+        ) // self.block_size

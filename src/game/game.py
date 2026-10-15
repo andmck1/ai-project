@@ -292,14 +292,15 @@ class Game:
         """
         Draws debug information onto game screen.
         """
-        start_pos_x = self.state.screen.debug_start_x
+        debug_start_x = self.state.screen.debug_start_x
+        assert debug_start_x is not None
 
         # draw ai snake state
         current_ai_snake = self.state.current_ai_snake
-        start_pos_x = self.state.screen.debug_start_x
+        start_pos_x = debug_start_x
         start_pos_y = 0
         for current_snake_index in range(2):
-            start_pos_x = self.state.screen.debug_start_x
+            start_pos_x = debug_start_x
             self.state.screen.draw_text(
                 f"Snake State {current_snake_index}", start_pos_x, start_pos_y
             )

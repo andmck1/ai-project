@@ -19,7 +19,10 @@ def custom(
     is_two_ai_playing: bool = False,
 ) -> None:
     while True:
-        screen = Screen(is_draw_enabled=is_draw_enabled)
+        screen = Screen(
+            is_draw_enabled=is_draw_enabled,
+            is_debug_enabled=is_debug_enabled,
+        )
         game = Game(
             screen,
             "MAT501 - Coursework",
