@@ -57,7 +57,7 @@ def only_ai(ai_model_mlflow_run_id: str) -> None:
         is_draw_enabled=True,
         is_ai_random=False,
         is_ai_enabled=True,
-        is_debug_enabled=True,
+        is_debug_enabled=False,
         is_two_ai_playing=True,
     )
 

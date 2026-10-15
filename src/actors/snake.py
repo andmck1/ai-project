@@ -1,8 +1,6 @@
-from src.config.pygame_import import pygame
 from src.actors.base import PyGameObject
-
-from src.game.screen import Screen
 from src.config.enums import Colour, Direction
+from src.game.screen import Screen
 
 
 class Snake(PyGameObject):
@@ -73,15 +71,73 @@ class Snake(PyGameObject):
             or head[1] >= self.screen.n_rows
         )
 
+    @property
+    def sprite_id(self) -> str:
+        return "2" if self.body_colour == Colour.BLUE else "1"
+
     def draw(self) -> None:
-        for segment in self.body:
-            pygame.draw.rect(
-                self.screen.surface,
-                self.body_colour.value,
+        body_set = set(self.body)
+        for index, segment in enumerate(self.body):
+            sprite = self.screen.sprites.get(self._sprite_name(index, body_set))
+            if sprite is None:
+                continue
+            self.screen.surface.blit(
+                sprite,
                 (
                     (segment[0] + 1) * self.screen.block_size,
                     (segment[1] + 1) * self.screen.block_size,
-                    self.screen.block_size,
-                    self.screen.block_size,
                 ),
             )
+
+    def _sprite_name(
+        self,
+        index: int,
+        body_set: set[tuple[int, int]],
+    ) -> str:
+        prefix = f"snake{self.sprite_id}"
+        position = self.body[index]
+
+        # head faces the current direction of travel
+        if index == 0:
+            return f"{prefix}_head_{self.current_direction.name.lower()}"
+
+        # tail: rounded end points away from the rest of the body
+        if index == len(self.body) - 1:
+            previous = self.body[index - 1]
+            if position[0] > previous[0]:
+                facing = "right"
+            elif position[0] < previous[0]:
+                facing = "left"
+            elif position[1] > previous[1]:
+                facing = "down"
+            else:
+                facing = "up"
+            return f"{prefix}_tail_{facing}"
+
+        # body: pick the piece matching which neighbours the segment joins
+        joins = set()
+        if (position[0] + 1, position[1]) in body_set:
+            joins.add("right")
+        if (position[0] - 1, position[1]) in body_set:
+            joins.add("left")
+        if (position[0], position[1] + 1) in body_set:
+            joins.add("down")
+        if (position[0], position[1] - 1) in body_set:
+            joins.add("up")
+
+        if {"left", "right"} <= joins:
+            return f"{prefix}_body_h"
+        if {"up", "down"} <= joins:
+            return f"{prefix}_body_v"
+        corners = {
+            frozenset({"up", "right"}): "corner_up_right",
+            frozenset({"right", "down"}): "corner_right_down",
+            frozenset({"down", "left"}): "corner_down_left",
+            frozenset({"left", "up"}): "corner_left_up",
+        }
+        corner_name = corners.get(frozenset(joins))
+        if corner_name is not None:
+            return f"{prefix}_{corner_name}"
+
+        # disconnected segment (shouldn't happen); fall back to a straight piece
+        return f"{prefix}_body_h"

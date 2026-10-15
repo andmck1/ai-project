@@ -1,10 +1,8 @@
-from src.config.pygame_import import pygame
-from src.actors.base import PyGameObject
-
-from src.game.screen import Screen
-from src.config.enums import Colour
-
 import random
+
+from src.actors.base import PyGameObject
+from src.config.enums import Colour
+from src.game.screen import Screen
 
 
 class Food(PyGameObject):
@@ -22,13 +20,12 @@ class Food(PyGameObject):
         ]
 
     def draw(self) -> None:
-        pygame.draw.rect(
-            self.screen.surface,
-            self.colour.value,
+        # board coordinates are 0-indexed; the wall occupies grid index 0,
+        # so offset by +1 to match the snake's draw position
+        self.screen.blit_sprite(
+            "fruit",
             (
-                (self.position[0] + 1) * self.screen.block_size,
-                (self.position[1] + 1) * self.screen.block_size,
-                self.screen.block_size,
-                self.screen.block_size,
+                self.position[0] + 1,
+                self.position[1] + 1,
             ),
         )

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from src.config.enums import Colour
 from src.config.pygame_import import pygame
+from src.game.sprites import load_sprites
 
 
 @dataclass
@@ -13,6 +14,7 @@ class Screen:
     total_height: int
     debug_start_x: int
     debug_start_y: int
+    sprites: dict[str, pygame.surface.Surface]
     board_width: int = 400
     board_height: int = 400
     edge_size: int = 1
@@ -55,6 +57,8 @@ class Screen:
             flags=flags,
         )
 
+        self.sprites = load_sprites(self.block_size)
+
         self.all_positions = [
             (i, j) for i in range(self.n_cols) for j in range(self.n_rows)
         ]
@@ -65,27 +69,32 @@ class Screen:
             (start_pos_x, start_pos_y),
         )
 
+    def blit_sprite(self, name: str, grid_position: tuple[int, int]) -> None:
+        """Blit a named sprite onto a grid cell (0-indexed, board space)."""
+        surface = self.sprites.get(name)
+        if surface is None:
+            return
+        self.surface.blit(
+            surface,
+            (
+                grid_position[0] * self.block_size,
+                grid_position[1] * self.block_size,
+            ),
+        )
+
     def draw_border(self) -> None:
-        for i in range(0, self.n_rows + 2):
-            for j in range(0, self.n_cols + 2):
-                if (
-                    (i != 0)
-                    and (j != 0)
-                    and (i <= self.n_rows)
-                    and (j <= self.n_cols)
-                ):
-                    continue
-                else:
-                    pygame.draw.rect(
-                        self.surface,
-                        self.border_colour.value,
-                        (
-                            i * self.block_size,
-                            j * self.block_size,
-                            self.block_size,
-                            self.block_size,
-                        ),
-                    )
+        # corners (name describes which two sides the piece joins)
+        self.blit_sprite("wall_corner_right_down", (0, 0))
+        self.blit_sprite("wall_corner_down_left", (self.n_cols + 1, 0))
+        self.blit_sprite("wall_corner_up_right", (0, self.n_rows + 1))
+        self.blit_sprite("wall_corner_left_up", (self.n_cols + 1, self.n_rows + 1))
+        # straight edges
+        for col in range(1, self.n_cols + 1):
+            self.blit_sprite("wall_pipe_h", (col, 0))
+            self.blit_sprite("wall_pipe_h", (col, self.n_rows + 1))
+        for row in range(1, self.n_rows + 1):
+            self.blit_sprite("wall_pipe_v", (0, row))
+            self.blit_sprite("wall_pipe_v", (self.n_cols + 1, row))
 
     @property
     def n_rows(self) -> int:

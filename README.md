@@ -40,7 +40,7 @@ uv run mlflow artifacts download --run-id 090472026d3d4ee189cbbd4cbde286cf --art
 
 and then run:
 ```psh
-uv run pyinstaller --add-data ".\src\release\xgboost-model\;xgboost-model" --add-data ".\.venv\Lib\site-packages\xgboost;xgboost" --add-binary ".\.venv\Lib\site-packages\xgboost\lib\xgboost.dll;bin" --name "snake" -y -p "." src/release/__main__.py
+uv run pyinstaller --add-data ".\src\release\xgboost-model\;xgboost-model" --add-data ".\src\resources\;resources" --add-data ".\.venv\Lib\site-packages\xgboost;xgboost" --add-binary ".\.venv\Lib\site-packages\xgboost\lib\xgboost.dll;bin" --name "snake" -y -p "." src/release/__main__.py
 ```
 
 This will create an exe file in dist.
