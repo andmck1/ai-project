@@ -21,9 +21,9 @@ class Screen:
 
     def __init__(
         self,
-        board_width: int = 400,
-        board_height: int = 400,
-        block_size: int = 20,
+        board_width: int = 16*20,
+        board_height: int = 16*20,
+        block_size: int = 16,
         edge_size: int = 1,
         is_draw_enabled: bool = True,
         border_colour: Colour = Colour.YELLOW,
