@@ -2,7 +2,7 @@
 A versus Snake game as part of a research project into game AI where you can
 compete against an AI to win at Snake.
 
-!(Snake Game)[./assets/showcase.gif]
+![Game demo](assets/showcase.gif)
 
 # Run EXE
 The default exe provided in `dist` runs the game in normal mode (arrow key controls) infinitely against an xgboost
