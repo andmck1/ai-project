@@ -47,3 +47,6 @@ uv run pyinstaller --add-data ".\src\release\xgboost-model\;xgboost-model" --add
 ```
 
 This will create an exe file in dist.
+
+# Author
+[Alastair Hamilton](alastair-hamilton.dev), alastair.amhamilton@icloud.com
