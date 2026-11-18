@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<g transform="rotate(90 32 32)"><rect x="0" y="0" width="64" height="64" fill="#FFD02E"/>
-<path d="M 0 6.0 L 64 6.0 M 0 58.0 L 64 58.0" fill="none" stroke="#000000" stroke-width="12" stroke-linecap="butt" stroke-linejoin="miter"/></g>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_2001_15)">
+<rect width="64" height="64" fill="#EDB55E"/>
+<rect x="52" width="12" height="64" fill="black"/>
+<rect width="12" height="64" fill="black"/>
+</g>
+<defs>
+<clipPath id="clip0_2001_15">
+<rect width="64" height="64" fill="white" transform="matrix(0 1 -1 0 64 0)"/>
+</clipPath>
+</defs>
 </svg>
